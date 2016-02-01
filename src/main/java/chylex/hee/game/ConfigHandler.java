@@ -7,7 +7,7 @@ import net.minecraftforge.common.config.Property;
 import chylex.hee.HardcoreEnderExpansion;
 import chylex.hee.api.HeeIMC;
 import chylex.hee.block.BlockEnderGoo;
-import chylex.hee.mechanics.compendium.content.fragments.KnowledgeFragmentText;
+import chylex.hee.gui.GuiEnderCompendium;
 import chylex.hee.mechanics.misc.StardustDecomposition;
 import chylex.hee.mechanics.orb.OrbAcquirableItems;
 import chylex.hee.proxy.ModClientProxy;
@@ -15,10 +15,11 @@ import chylex.hee.proxy.ModCommonProxy;
 import chylex.hee.sound.MusicManager;
 import chylex.hee.system.logging.Log;
 import chylex.hee.system.update.UpdateNotificationManager;
+import chylex.hee.system.util.GameRegistryUtil;
+import chylex.hee.system.util.ItemPattern;
 import chylex.hee.world.biome.BiomeGenHardcoreEnd;
 import cpw.mods.fml.client.config.IConfigElement;
 import cpw.mods.fml.client.event.ConfigChangedEvent.OnConfigChangedEvent;
-import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
@@ -27,7 +28,7 @@ public final class ConfigHandler{
 	private static ConfigHandler instance;
 	
 	public static void register(File configFile){
-		FMLCommonHandler.instance().bus().register(instance = new ConfigHandler(new Configuration(configFile)));
+		GameRegistryUtil.registerEventHandler(instance = new ConfigHandler(new Configuration(configFile)));
 	}
 
 	@SideOnly(Side.CLIENT)
@@ -58,10 +59,7 @@ public final class ConfigHandler{
 	private ConfigHandler(Configuration config){
 		this.config = config;
 		this.config.load();
-		
-		config.getCategory("client").remove("hardcoreEnderbacon");
-		config.moveProperty("general","enableUpdateNotifications","notifications");
-		config.moveProperty("general","enableBuildCheck","notifications");
+		ModTransition.cleanupConfig(config);
 	}
 	
 	@SubscribeEvent
@@ -75,14 +73,15 @@ public final class ConfigHandler{
 	private void loadClientConfig(){
 		currentCategory = "client";
 		
-		KnowledgeFragmentText.smoothRenderingMode = (byte)getInt("compendiumSmoothText", 0, "Special text rendering mode for Ender Compendium, smooths out aliasing in Large GUI scale.").getInt();
-		
 		if (firstTimeClient){
 			ModClientProxy.loadEnderbacon(getInt("hardcoreEnderbaconMode", 0, "0 = enabled on April Fools, 1 = always enabled, 2 = never enabled.").setShowInGui(false).getInt());
-			MusicManager.enableCustomMusic = getBool("enableMusic", true, "Custom music playing in the End dimension and custom Music Discs.").setRequiresMcRestart(true).getBoolean();
-			MusicManager.removeVanillaDelay = getBool("removeVanillaDelay", false, "Removes long delays between vanilla music tracks.").setRequiresMcRestart(true).getBoolean();
+			MusicManager.enableCustomMusic = getBool("enableMusic", true, "Custom music playing in the End and new Music Discs. Requires a resource pack: http://hee-music.chylex.com").setRequiresMcRestart(true).getBoolean();
+			MusicManager.removeVanillaDelay = getBool("removeVanillaDelay", false, "Removes long delays between vanilla music tracks. This will override music from other mods.").setRequiresMcRestart(true).getBoolean();
 			firstTimeClient = false;
 		}
+		
+		GuiEnderCompendium.pausesGame = getBoolValue("compendiumPausesGame", true, "If enabled, in singleplayer the Ender Compendium pauses the game when open.");
+		GuiEnderCompendium.wasPaused = GuiEnderCompendium.pausesGame;
 		
 		if (config.hasChanged())config.save();
 	}
@@ -91,7 +90,7 @@ public final class ConfigHandler{
 	private void loadNotificationConfig(){
 		currentCategory = "notifications";
 		
-		UpdateNotificationManager.enableNotifications = getBoolValue("enableUpdateNotifications", true, "Notifies users about new updates. The notifications can be customized with other options. Due to occasional misconceptions: the notifications have no effect on the game performance.");
+		UpdateNotificationManager.enableNotifications = getBoolValue("enableUpdateNotifications", true, "Notifies users about new updates. The notifications can be customized with other options, and have no effect on the game performance.");
 		UpdateNotificationManager.enableOneReportPerUpdate = getBoolValue("enableOneReportPerUpdate", false, "Each update only shows a single report.");
 		UpdateNotificationManager.enableNewerMC = getBoolValue("enableNewerMC", false, "Checks whether a new version for newer Minecraft is available.");
 		UpdateNotificationManager.enableBuildCheck = getBoolValue("enableBuildCheck", true, "It is highly suggested to keep this option enabled. This will detect broken builds with critical errors that can crash your game. These are usually fixed very quickly, but it is important to notify people who downloaded the broken build.");
@@ -109,14 +108,15 @@ public final class ConfigHandler{
 		if (firstTimeGeneral){
 			BiomeGenHardcoreEnd.overworldEndermanMultiplier = (float)getDecimal("overworldEndermanMultiplier", 1F, "Multiplies spawn weight of Endermen for each overworld biome (the weight is adjusted automatically).").setRequiresMcRestart(true).getDouble();
 			OrbAcquirableItems.overrideRemoveBrokenRecipes = getBool("overrideRemoveBrokenRecipes", false, "This will remove broken recipes that would normally crash the game. ALWAYS REPORT THE RECIPES TO THE AUTHORS OF THE BROKEN MODS FIRST!").setShowInGui(false).getBoolean();
-			ModCommonProxy.achievementStartId = getInt("achievementStartId", 3500, "Starting ID of achievements, only change this if there is a conflict.").setShowInGui(false).getInt();
-			StardustDecomposition.addFromString(getString("decompositionBlacklist", "", "Blacklist of items that should not be decomposable or decomposed into. Visit http://hee.chylex.com/config for syntax and examples.").setRequiresMcRestart(true).getString());
-			StardustDecomposition.addFromString("minecraft:fire, ExtraUtilities:unstableingot, witchery:*");
 			
-			String[] imcs = getStringArray("IMC", new String[]{ "Write your message here" }, "List of IMC/API messages, documentation can be found on http://hee-api.chylex.com").setShowInGui(false).getStringList();
+			StardustDecomposition.addToBlacklist(new ItemPattern().setItemName("minecraft","fire"));
+			StardustDecomposition.addToBlacklist(new ItemPattern().setItemName("ExtraUtilities","unstableingot"));
+			StardustDecomposition.addToBlacklist(new ItemPattern().setItemName("witchery","*"));
+			
+			String[] imcs = getStringArray("IMC", new String[]{ "Write your message here" }, "List of IMC messages, documentation can be found on http://hee-api.chylex.com").setShowInGui(false).getStringList();
 			
 			if (!(imcs.length == 1 && (imcs[0].isEmpty() || imcs[0].equals("Write your message here")))){
-				for(String imc:imcs)HeeIMC.acceptString("HEE Configuration File",imc);
+				for(String imc:imcs)HeeIMC.acceptString("[Configuration File]",imc);
 			}
 			
 			firstTimeGeneral = false;
@@ -140,10 +140,6 @@ public final class ConfigHandler{
 	}
 	
 	private Property getDecimal(String key, float defaultValue, String comment){
-		return config.get(currentCategory,key,defaultValue,comment);
-	}
-	
-	private Property getString(String key, String defaultValue, String comment){
 		return config.get(currentCategory,key,defaultValue,comment);
 	}
 	

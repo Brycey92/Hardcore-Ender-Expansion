@@ -1,153 +1,251 @@
 package chylex.hee.mechanics.compendium.content;
 import gnu.trove.map.hash.TIntObjectHashMap;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.item.ItemStack;
-import chylex.hee.mechanics.compendium.objects.IKnowledgeObjectInstance;
-import chylex.hee.mechanics.compendium.util.IGuiItemStackRenderer;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
+import chylex.hee.mechanics.compendium.content.objects.IObjectHolder;
+import chylex.hee.mechanics.compendium.elements.CompendiumObjectElement.ObjectShape;
+import chylex.hee.mechanics.compendium.util.KnowledgeUtils;
+import chylex.hee.system.collections.CollectionUtil;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
-public class KnowledgeObject<T extends IKnowledgeObjectInstance<?>> implements IGuiItemStackRenderer{
-	private static int lastUsedID = 0;
-	private static final int iconDist = 12;
+public class KnowledgeObject<T extends IObjectHolder<?>>{
+	private static int prevID = 0;
 	private static final TIntObjectHashMap<KnowledgeObject<?>> allObjects = new TIntObjectHashMap<>();
 	
-	public static <T extends IKnowledgeObjectInstance<?>> KnowledgeObject<T> getObject(Object o){
-		for(KnowledgeObject<?> knowledgeObject:allObjects.valueCollection()){
-			if (knowledgeObject.theObject.checkEquality(o))return (KnowledgeObject<T>)knowledgeObject;
-		}
-		
-		return null;
+	public static final Collection<KnowledgeObject<?>> getAllObjects(){
+		return allObjects.valueCollection();
 	}
 	
-	public static <T extends IKnowledgeObjectInstance<?>> KnowledgeObject<T> getObjectById(int id){
+	public static final <T extends IObjectHolder<?>> KnowledgeObject<T> fromObject(Object o){
+		return (KnowledgeObject<T>)getAllObjects().stream().filter(knowledgeObj -> knowledgeObj.holder.checkEquality(o)).findAny().orElse(null);
+	}
+	
+	public static final <T extends IObjectHolder<?>> KnowledgeObject<T> fromObject(ItemStack is){
+		if (!KnowledgeUtils.isItemStackViable(is))return null;
+		return (KnowledgeObject<T>)getAllObjects().stream().filter(knowledgeObj -> knowledgeObj.holder.checkEquality(is)).findAny().orElse(null);
+	}
+	
+	public static final <T extends IObjectHolder<?>> KnowledgeObject<T> fromID(int id){
 		return (KnowledgeObject<T>)allObjects.get(id);
 	}
 	
-	public static ImmutableList<KnowledgeObject<?>> getAllObjects(){
-		return ImmutableList.copyOf(allObjects.valueCollection());
-	}
-	
 	public final int globalID;
-	private final T theObject;
-	private final ItemStack itemToRender;
+	public final T holder;
 	private final String tooltip;
-	private final Set<KnowledgeFragment> fragmentSet = new LinkedHashSet<>();
-	private ImmutableSet<KnowledgeFragment> fragmentSetImmutable = ImmutableSet.of();
-	private int x, y, unlockPrice, reward;
 	
-	public KnowledgeObject(T theObject){
-		this(theObject,theObject.createItemStackToRender());
+	private final List<KnowledgeObject<?>> parents;
+	private final List<KnowledgeObject<?>> children;
+	private final Set<KnowledgeFragment> fragments;
+	
+	private final List<short[]> parentLineNodes;
+	private final List<short[]> childLineNodes;
+	
+	private int x, y, price, reward;
+	private ObjectShape shape = ObjectShape.PLAIN;
+	private boolean canBeDiscovered = true;
+	private boolean isCategoryObject;
+	
+	public KnowledgeObject(T holder){
+		this(holder,holder.getDisplayItemStack().getDisplayName());
 	}
 	
-	public KnowledgeObject(T theObject, ItemStack itemToRender){
-		this(theObject,itemToRender,itemToRender.getDisplayName());
-	}
-	
-	public KnowledgeObject(T theObject, String tooltip){
-		this(theObject,theObject.createItemStackToRender(),tooltip);
-	}
-	
-	public KnowledgeObject(T theObject, ItemStack itemToRender, String tooltip){
-		this.theObject = theObject;
-		this.itemToRender = itemToRender;
-		this.tooltip = tooltip;
-		this.globalID = ++lastUsedID;
+	public KnowledgeObject(T holder, String unlocalizedTooltip){
+		this.globalID = ++prevID;
+		this.holder = holder;
+		this.tooltip = unlocalizedTooltip;
+		this.parents = new ArrayList<>(1);
+		this.children = new ArrayList<>(4);
+		this.fragments = new LinkedHashSet<>(6);
+		this.parentLineNodes = CollectionUtil.newList(new short[]{ 0, 0 });
+		this.childLineNodes = CollectionUtil.newList(new short[]{ 0, 0 });
 		allObjects.put(globalID,this);
 	}
 	
-	public KnowledgeObject setPos(int x, int y){
-		if (x < 0 || y < 0)throw new IllegalArgumentException("Invalid KnowledgeObject position, x and y have to be >= 0 ("+x+","+y+")");
-		this.x = (x+1)*iconDist;
-		this.y = y*iconDist;
+	// Category
+	
+	public KnowledgeObject<T> setCategoryObject(){
+		this.isCategoryObject = true;
 		return this;
 	}
 	
-	public KnowledgeObject setCategoryObject(KnowledgeCategory category){
-		this.x = Integer.MIN_VALUE;
-		category.setCategoryObject(this);
-		return this;
+	public boolean isCategoryObject(){
+		return isCategoryObject;
 	}
 	
-	public KnowledgeObject setUnlockPrice(int price){
-		this.unlockPrice = price;
-		return this;
-	}
+	// Fragments
 	
-	public KnowledgeObject setNonBuyable(){
-		this.unlockPrice = -1;
-		return this;
-	}
-	
-	public KnowledgeObject setDiscoveryReward(int reward){
-		this.reward = reward;
-		return this;
-	}
-	
-	public KnowledgeObject addFragments(KnowledgeFragment[] fragments){
-		for(KnowledgeFragment fragment:fragments)fragmentSet.add(fragment);
-		fragmentSetImmutable = ImmutableSet.copyOf(fragmentSet);
+	public KnowledgeObject<T> addFragments(KnowledgeFragment...fragments){
+		for(KnowledgeFragment fragment:fragments)this.fragments.add(fragment);
 		return this;
 	}
 	
 	public Set<KnowledgeFragment> getFragments(){
-		return fragmentSetImmutable;
+		return Collections.unmodifiableSet(fragments);
 	}
 	
-	public T getObject(){
-		return theObject;
+	// Relationship
+	
+	public KnowledgeObject<T> setParent(KnowledgeObject<?> obj, int offX, int offY){
+		this.x = obj.x+offX*12;
+		this.y = obj.y+offY*12;
+		this.parents.add(obj);
+		obj.children.add(this);
+		return this;
 	}
 	
-	public boolean isCategoryObject(){
-		return x == Integer.MIN_VALUE;
+	public KnowledgeObject<T> addParent(KnowledgeObject<?> obj){
+		this.parents.add(obj);
+		obj.children.add(this);
+		return this;
 	}
 	
-	public boolean isBuyable(){
-		return unlockPrice != -1;
+	public List<KnowledgeObject<?>> getParents(){
+		return parents;
 	}
 	
-	public int getUnlockPrice(){
-		return unlockPrice;
+	public List<KnowledgeObject<?>> getChildren(){
+		return children;
 	}
 	
-	public int getDiscoveryReward(){
-		return reward;
+	// Discovery
+	
+	public KnowledgeObject<T> setNoDiscovery(){
+		this.canBeDiscovered = false;
+		return this;
 	}
 	
-	@Override
+	public boolean canBeDiscovered(){
+		return canBeDiscovered;
+	}
+	
+	// Position
+	
+	public KnowledgeObject<T> setPos(int x, int y){
+		this.x = x*12;
+		this.y = y*12;
+		return this;
+	}
+	
+	public KnowledgeObject<T> setHidden(){
+		this.y = -1;
+		return this;
+	}
+	
+	public boolean isHidden(){
+		return y == -1;
+	}
+	
 	public int getX(){
 		return x;
 	}
-
-	@Override
+	
 	public int getY(){
 		return y;
 	}
-
-	@Override
-	public ItemStack getItemStack(){
-		return itemToRender;
-	}
-
-	@Override
-	@SideOnly(Side.CLIENT)
-	public String getTooltip(){
-		return I18n.format(tooltip);
+	
+	// Shapes
+	
+	public KnowledgeObject<T> setImportant(){
+		this.shape = ObjectShape.IMPORTANT;
+		return this;
 	}
 	
-	public String getUnlocalizedTooltip(){
-		return tooltip;
+	public KnowledgeObject<T> setSpecial(){
+		this.shape = ObjectShape.SPECIAL;
+		return this;
+	}
+	
+	public ObjectShape getShape(){
+		return shape;
+	}
+	
+	// Line Nodes
+	
+	public KnowledgeObject<T> addParentLine(int offsetX, int offsetY){
+		parentLineNodes.add(new short[]{ (short)(offsetX*12), (short)(offsetY*12) });
+		return this;
+	}
+	
+	public KnowledgeObject<T> addChildLine(int offsetX, int offsetY){
+		childLineNodes.add(new short[]{ (short)(offsetX*12), (short)(offsetY*12) });
+		return this;
+	}
+	
+	public void connectToChildren(ILineCallback callback){
+		short[] node, lastChildNode;
+		
+		for(int childIndex = 0; childIndex < childLineNodes.size()-1; childIndex++){
+			lastChildNode = childLineNodes.get(childIndex);
+			node = childLineNodes.get(childIndex+1);
+			callback.call(x+lastChildNode[0],y+lastChildNode[1],x+node[0],y+node[1]);
+		}
+		
+		lastChildNode = childLineNodes.get(childLineNodes.size()-1);
+		
+		for(KnowledgeObject<?> child:children){
+			node = child.parentLineNodes.get(child.parentLineNodes.size()-1);
+			callback.call(x+lastChildNode[0],y+lastChildNode[1],child.x+node[0],child.y+node[1]);
+			
+			short[] prevParentNode = node;
+			
+			for(int parentIndex = child.parentLineNodes.size()-2; parentIndex >= 0; parentIndex--){
+				node = child.parentLineNodes.get(parentIndex);
+				callback.call(child.x+prevParentNode[0],child.y+prevParentNode[1],child.x+node[0],child.y+node[1]);
+				prevParentNode = child.parentLineNodes.get(parentIndex);
+			}
+		}
+	}
+	
+	// Points
+	
+	public KnowledgeObject<T> setPrice(int points){
+		this.price = points;
+		return this;
+	}
+	
+	public int getPrice(){
+		return price;
+	}
+	
+	public KnowledgeObject<T> setReward(int points){
+		this.reward = points;
+		return this;
+	}
+	
+	public int getReward(){
+		return reward;
+	}
+	
+	// Utilities
+	
+	public void reset(){
+		x = y = price = reward = 0;
+		parents.clear();
+		children.clear();
+		fragments.clear();
+		parentLineNodes.clear();
+		parentLineNodes.add(new short[]{ 0, 0 });
+		childLineNodes.clear();
+		childLineNodes.add(new short[]{ 0, 0 });
+	}
+	
+	@SideOnly(Side.CLIENT)
+	public String getTranslatedTooltip(){
+		return I18n.format(tooltip);
 	}
 	
 	@Override
 	public boolean equals(Object o){
-		if (o instanceof KnowledgeObject){
-			KnowledgeObject obj = (KnowledgeObject)o;
-			return obj.globalID == globalID || obj.theObject == theObject;
+		if (o instanceof KnowledgeObject<?>){
+			KnowledgeObject<?> obj = (KnowledgeObject<?>)o;
+			return obj.globalID == globalID || obj.holder == holder;
 		}
 		else return false;
 	}
@@ -157,59 +255,9 @@ public class KnowledgeObject<T extends IKnowledgeObjectInstance<?>> implements I
 		return globalID;
 	}
 	
-	public static final class LinkedKnowledgeObject<T extends IKnowledgeObjectInstance<?>> extends KnowledgeObject<T>{
-		private final KnowledgeObject<T> linkedObject;
-		
-		public LinkedKnowledgeObject(KnowledgeObject<T> linkedObject){
-			this(linkedObject,linkedObject.getItemStack());
-		}
-		
-		public LinkedKnowledgeObject(KnowledgeObject<T> linkedObject, ItemStack itemToRender){
-			this(linkedObject,itemToRender,itemToRender.getDisplayName());
-		}
-		
-		public LinkedKnowledgeObject(KnowledgeObject<T> linkedObject, String tooltip){
-			this(linkedObject,linkedObject.getItemStack(),tooltip);
-		}
-		
-		public LinkedKnowledgeObject(KnowledgeObject<T> linkedObject, ItemStack itemToRender, String tooltip){
-			super(linkedObject.getObject(),itemToRender,tooltip);
-			this.linkedObject = linkedObject;
-		}
-		
-		@Override
-		public KnowledgeObject setUnlockPrice(int price){
-			throw new UnsupportedOperationException("Cannot modify unlock price in linked Knowledge Objects.");
-		}
-		
-		@Override
-		public KnowledgeObject setDiscoveryReward(int reward){
-			throw new UnsupportedOperationException("Cannot modify discovery reward in linked Knowledge Objects.");
-		}
-		
-		@Override
-		public KnowledgeObject addFragments(KnowledgeFragment[] fragments){
-			throw new UnsupportedOperationException("Cannot modify fragments in linked Knowledge Objects.");
-		}
-		
-		@Override
-		public boolean isBuyable(){
-			return linkedObject.isBuyable();
-		}
-		
-		@Override
-		public int getUnlockPrice(){
-			return linkedObject.getUnlockPrice();
-		}
-		
-		@Override
-		public int getDiscoveryReward(){
-			return linkedObject.getDiscoveryReward();
-		}
-		
-		@Override
-		public Set<KnowledgeFragment> getFragments(){
-			return linkedObject.getFragments();
-		}
+	// Line Interface
+	
+	public static interface ILineCallback{
+		void call(int x1, int y1, int x2, int y2);
 	}
 }

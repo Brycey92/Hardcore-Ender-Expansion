@@ -27,12 +27,12 @@ public class BlockAncientCobweb extends BlockWeb{
 	
 	static{
 		ModInitHandler.afterPreInit(() -> {
-			drops.addLoot(Items.string).setChances(obj -> {
-				return ((LootBlockInfo)obj).fortune > 0 ? new float[]{ 1F } : new float[]{ 0.9F };
+			drops.addLoot(Items.string).<LootBlockInfo>setChances(obj -> {
+				return obj.fortune > 0 ? new float[]{ 1F } : new float[]{ 0.9F };
 			});
 			
-			drops.addLoot(ItemList.ancient_dust).setChances(obj -> {
-				return ((LootBlockInfo)obj).fortune > 0 ? new float[]{ 0.85F } : new float[]{ 0.6F };
+			drops.addLoot(ItemList.ancient_dust).<LootBlockInfo>setChances(obj -> {
+				return obj.fortune > 0 ? new float[]{ 0.85F } : new float[]{ 0.6F };
 			});
 		});
 	}
@@ -69,19 +69,19 @@ public class BlockAncientCobweb extends BlockWeb{
 	}
 	
 	@Override
-    @SideOnly(Side.CLIENT)
+	@SideOnly(Side.CLIENT)
 	public int colorMultiplier(IBlockAccess world, int x, int y, int z){
 		return 0xDFDFDF;
 	}
 	
 	@Override
-    @SideOnly(Side.CLIENT)
+	@SideOnly(Side.CLIENT)
 	public int getRenderColor(int meta){
 		return 0xDFDFDF;
 	}
 	
 	@Override
-    @SideOnly(Side.CLIENT)
+	@SideOnly(Side.CLIENT)
 	public int getBlockColor(){
 		return 0xDFDFDF;
 	}

@@ -1,7 +1,8 @@
 package chylex.hee.system.collections;
-import java.util.*;
 import java.util.AbstractMap.SimpleEntry;
+import java.util.*;
 import java.util.Map.Entry;
+import java.util.function.ToDoubleFunction;
 
 public final class CollectionUtil{
 	public static <K,V extends Comparable<? super V>> SortedSet<Entry<K,V>> sortMapByValueAsc(Map<K,V> map){
@@ -14,7 +15,7 @@ public final class CollectionUtil{
 			}
 		);
 		
-		for(Entry<K,V> entry:map.entrySet())sorted.add(new SimpleEntry(entry));
+		for(Entry<K,V> entry:map.entrySet())sorted.add(new SimpleEntry<>(entry));
 		return sorted;
 	}
 
@@ -28,8 +29,40 @@ public final class CollectionUtil{
 			}
 		);
 		
-		for(Entry<K,V> entry:map.entrySet())sorted.add(new SimpleEntry(entry));
+		for(Entry<K,V> entry:map.entrySet())sorted.add(new SimpleEntry<>(entry));
 		return sorted;
+	}
+	
+	public static <T> Optional<T> min(List<T> list, ToDoubleFunction<T> toDouble){
+		T minObj = null;
+		double minValue = Double.MAX_VALUE;
+		
+		for(T obj:list){
+			double value = toDouble.applyAsDouble(obj);
+			
+			if (value < minValue){
+				minObj = obj;
+				minValue = value;
+			}
+		}
+		
+		return Optional.ofNullable(minObj);
+	}
+	
+	public static <T> Optional<T> get(T[] array, int index){
+		return index >= 0 && index < array.length ? Optional.ofNullable(array[index]) : Optional.empty();
+	}
+	
+	public static <T> Optional<T> get(List<T> list, int index){
+		return index >= 0 && index < list.size() ? Optional.ofNullable(list.get(index)) : Optional.empty();
+	}
+	
+	public static <T> T getClamp(T[] array, int index){
+		return array[Math.min(Math.max(index,0),array.length-1)];
+	}
+	
+	public static <T> T getClamp(List<T> list, int index){
+		return list.get(Math.min(Math.max(index,0),list.size()-1));
 	}
 	
 	public static <T> ArrayList<T> newList(T...elements){
@@ -51,7 +84,7 @@ public final class CollectionUtil{
 	}
 	
 	public static <T> RandomList<T> shuffled(List<T> list, Random rand){
-		return new RandomList(list,rand);
+		return new RandomList<>(list,rand);
 	}
 	
 	public static <T> Optional<T> random(List<T> list, Random rand){

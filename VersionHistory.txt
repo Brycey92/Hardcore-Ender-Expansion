@@ -1,4 +1,37 @@
 ==================
+Release 1.8.5 (1.7.10)
+7 January 2016
+------------------
+>Important
+Custom music has been moved to a separate resource pack: <a href="http://hee-music.chylex.com">http://hee-music.chylex.com</a>
+The invalid recipe removal override is now automatically enabled (corrupted recipes will continue to be printed into the log files, but will no longer crash the game)
+
+>Changes
+Allow other mods to have priority replacing the music system
+
+>Bugfixes
+Fixed a critical exploit with Essence Altars
+Fixed detection of modified and removed recipes in the Compendium
+Fixed formatting of mcmod.info on different systems
+Possibly fixed a random crash with Thaumcraft golems passing corrupted event data to Forge
+Possibly worked around a very rare crash when generating custom structures in the End
+
+
+==================
+Release 1.8.4 (1.7.10)
+3 October 2015
+------------------
+>Changes
+Not Enough Items integration no longer intercepts recipe/usage keys, only Compendium key
+
+>Bugfixes
+Fixed Compendium not returning to previous screen (caused item loss in crafting table)
+Fixed Music Discs crashing when used on a wrong tile entity
+Fixed biome replacement to stop Anti ID Conflict from complaining
+Fixed debug mode crashing on servers under certain circumstances
+
+
+==================
 Release 1.8.3 (1.7.10)
 15 August 2015
 ------------------
@@ -440,7 +473,7 @@ Optimized mod integration, you should no longer run out of memory on startup
 
 
 ==================
-Release 1.5a (1.6.4, 1.7.2)
+Release 1.5a (1.7.2/1.6.4)
 21 Apr 2014
 ------------------
 >Bugfixes

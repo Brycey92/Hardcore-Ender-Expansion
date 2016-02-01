@@ -7,12 +7,13 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLiving;
 import net.minecraft.entity.boss.IBossDisplayData;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.stats.Achievement;
 import net.minecraft.stats.AchievementList;
 import org.apache.commons.lang3.ArrayUtils;
 import chylex.hee.HardcoreEnderExpansion;
 import chylex.hee.entity.block.EntityBlockEnderCrystal;
-import chylex.hee.entity.block.EntityBlockHomelandCache;
+import chylex.hee.entity.block.EntityBlockTokenHolder;
 import chylex.hee.entity.boss.EntityBossDragon;
 import chylex.hee.entity.boss.dragon.attacks.special.DragonSpecialAttackBase;
 import chylex.hee.game.save.SaveData;
@@ -24,10 +25,12 @@ import chylex.hee.mechanics.compendium.events.CompendiumEvents;
 import chylex.hee.mechanics.curse.ICurseCaller;
 import chylex.hee.packets.PacketPipeline;
 import chylex.hee.packets.client.C19CompendiumData;
+import chylex.hee.system.abstractions.entity.EntitySelector;
 import chylex.hee.system.logging.Log;
 import chylex.hee.system.update.UpdateNotificationManager;
 import chylex.hee.system.util.DragonUtil;
 import chylex.hee.system.util.MathUtil;
+import chylex.hee.world.TeleportHandler;
 
 public class HeeAdminCommand extends BaseCommand{
 	private static final String pre = DARK_PURPLE+"[HEE] "+RESET;
@@ -62,9 +65,9 @@ public class HeeAdminCommand extends BaseCommand{
 			void run(ICommandSender sender, String[] args){
 				int counter = 0;
 				
-				for(Object o:sender.getEntityWorld().loadedEntityList){
-					if (o instanceof IBossDisplayData && o instanceof EntityLiving){
-						((EntityLiving)o).setHealth(0F);
+				for(Entity e:EntitySelector.any(sender.getEntityWorld())){
+					if (e instanceof IBossDisplayData && e instanceof EntityLiving){
+						((EntityLiving)e).setHealth(0F);
 						++counter;
 					}
 				}
@@ -85,8 +88,8 @@ public class HeeAdminCommand extends BaseCommand{
 				}
 				
 				CompendiumFile file = CompendiumEvents.getPlayerData(player);
-				file.payPoints(file.getPoints());
-				file.givePoints(amount);
+				file.offsetPoints(-file.getPoints()+amount);
+				
 				PacketPipeline.sendToPlayer(player,new C19CompendiumData(player));
 				sendMessage(sender,"Compendium points updated.");
 			}
@@ -98,8 +101,8 @@ public class HeeAdminCommand extends BaseCommand{
 				EntityPlayer player = (EntityPlayer)sender;
 				CompendiumFile file = CompendiumEvents.getPlayerData(player);
 				
-				for(KnowledgeObject<?> object:KnowledgeObject.getAllObjects())file.tryDiscoverObject(object,false);
-				for(KnowledgeFragment fragment:KnowledgeFragment.getAllFragments())file.tryUnlockFragment(fragment);
+				for(KnowledgeObject<?> object:KnowledgeObject.getAllObjects())file.tryDiscoverObject(player,object,true);
+				for(KnowledgeFragment fragment:KnowledgeFragment.getUnlockableFragments())file.unlockFragment(fragment);
 				
 				PacketPipeline.sendToPlayer(player,new C19CompendiumData(player));
 				sendMessage(sender,pre+"Compendium data unlocked.");
@@ -117,7 +120,7 @@ public class HeeAdminCommand extends BaseCommand{
 			}
 		});
 		
-		sub.add(new SubCommand("spawn-entity","<endercrystal|homelandcache>",1,true){
+		sub.add(new SubCommand("spawn-entity","<endercrystal|tokenholder>",1,true){
 			@Override
 			void run(ICommandSender sender, String[] args){
 				EntityPlayer player = (EntityPlayer)sender;
@@ -125,7 +128,7 @@ public class HeeAdminCommand extends BaseCommand{
 				
 				switch(args[0]){
 					case "endercrystal": e = new EntityBlockEnderCrystal(player.worldObj); break;
-					case "homelandcache": e = new EntityBlockHomelandCache(player.worldObj); break;
+					case "tokenholder": e = new EntityBlockTokenHolder(player.worldObj); break;
 				}
 				
 				if (e == null)sendMessage(sender,pre+"Unknown entity.");
@@ -187,7 +190,7 @@ public class HeeAdminCommand extends BaseCommand{
 			void run(ICommandSender sender, String[] args){
 				int counter = 0;
 				
-				for(Entity entity:(List<Entity>)sender.getEntityWorld().loadedEntityList){
+				for(Entity entity:EntitySelector.any(sender.getEntityWorld())){
 					if (entity instanceof ICurseCaller){
 						entity.setDead();
 						((ICurseCaller)entity).onPurify();
@@ -196,6 +199,14 @@ public class HeeAdminCommand extends BaseCommand{
 				}
 				
 				sendMessage(sender,pre+"Purified "+counter+" curse"+(counter == 1 ? "." : "es."));
+			}
+		});
+		
+		sub.add(new SubCommand("tp-overworld",0,true){
+			@Override
+			void run(ICommandSender sender, String[] args){
+				((EntityPlayerMP)sender).timeUntilPortal = 10;
+				TeleportHandler.toOverworld((EntityPlayerMP)sender);
 			}
 		});
 		

@@ -8,15 +8,20 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.world.World;
 import net.minecraftforge.common.IExtendedEntityProperties;
-import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.entity.EntityEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
+import org.apache.commons.lang3.StringUtils;
 import chylex.hee.game.save.ISaveDataHandler;
 import chylex.hee.game.save.types.PlayerFile;
+import chylex.hee.system.util.GameRegistryUtil;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 
 public class PlayerDataHandler implements ISaveDataHandler{
 	private static final String dataIdentifier = "HardcoreEnderExpansion2";
+	
+	public static final String getID(EntityPlayer player){
+		return ((PlayerIdProperty)player.getExtendedProperties(dataIdentifier)).id; // server only
+	}
 	
 	private final Map<String,PlayerFile> cache = new HashMap<>();
 	private File root;
@@ -25,7 +30,7 @@ public class PlayerDataHandler implements ISaveDataHandler{
 	
 	@Override
 	public void register(){
-		MinecraftForge.EVENT_BUS.register(this);
+		GameRegistryUtil.registerEventHandler(this);
 	}
 
 	@Override
@@ -36,14 +41,17 @@ public class PlayerDataHandler implements ISaveDataHandler{
 	}
 	
 	public <T extends PlayerFile> T get(EntityPlayer player, Class<T> cls){
-		String id = ((PlayerIdProperty)player.getExtendedProperties(dataIdentifier)).id;
-		String cacheKey = cls.getSimpleName()+"~"+id;
+		return get(getID(player),cls);
+	}
+	
+	public <T extends PlayerFile> T get(String playerID, Class<T> cls){
+		String cacheKey = cls.getSimpleName()+"~"+playerID;
 		
 		PlayerFile savefile = cache.get(cacheKey);
 		
 		if (savefile == null){
 			try{
-				cache.put(cacheKey,savefile = cls.getConstructor(String.class).newInstance(id+".nbt"));
+				cache.put(cacheKey,savefile = cls.getConstructor(String.class).newInstance(playerID+".nbt"));
 				savefile.loadFromNBT(root);
 			}catch(Exception e){
 				throw new RuntimeException("Could not construct a new instance of PlayerFile - "+cls.getName(),e);
@@ -62,7 +70,7 @@ public class PlayerDataHandler implements ISaveDataHandler{
 	
 	@SubscribeEvent
 	public void onEntityConstructing(EntityEvent.EntityConstructing e){
-		if (e.entity.worldObj != null && e.entity instanceof EntityPlayer){
+		if (e.entity.worldObj != null && !e.entity.worldObj.isRemote && e.entity instanceof EntityPlayer){
 			if (!e.entity.registerExtendedProperties(dataIdentifier,new PlayerIdProperty()).equals(dataIdentifier)){
 				throw new IllegalStateException("Could not register extended player properties, likely due to the properties already being registered by another mod!");
 			}
@@ -83,7 +91,7 @@ public class PlayerDataHandler implements ISaveDataHandler{
 		
 		@Override
 		public void init(Entity entity, World world){
-			id = UUID.randomUUID().toString().replace("-","");
+			id = StringUtils.remove(UUID.randomUUID().toString(),'-');
 		}
 		
 		@Override

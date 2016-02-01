@@ -1,5 +1,4 @@
 package chylex.hee.entity.projectile;
-import net.minecraft.block.material.Material;
 import net.minecraft.enchantment.EnchantmentProtection;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.projectile.EntityFireball;
@@ -10,8 +9,9 @@ import net.minecraft.util.MovingObjectPosition;
 import net.minecraft.world.World;
 import chylex.hee.HardcoreEnderExpansion;
 import chylex.hee.proxy.ModCommonProxy;
-import chylex.hee.system.util.BlockPosM;
-import chylex.hee.system.util.DragonUtil;
+import chylex.hee.system.abstractions.Pos;
+import chylex.hee.system.abstractions.Vec;
+import chylex.hee.system.abstractions.facing.Facing6;
 
 public class EntityProjectileFlamingBall extends EntityFireball{
 	public EntityProjectileFlamingBall(World world){
@@ -47,8 +47,8 @@ public class EntityProjectileFlamingBall extends EntityFireball{
 			boolean isLiving = mop.entityHit instanceof EntityLivingBase;
 			
 			if (isLiving && rand.nextInt(ModCommonProxy.opMobs ? 3 : 4) == 0){
-				double[] vec = DragonUtil.getNormalizedVector(shootingEntity.posX-mop.entityHit.posX,shootingEntity.posZ-mop.entityHit.posZ);
-				((EntityLivingBase)mop.entityHit).knockBack(shootingEntity,0.9F,vec[0]*0.15D*(0.85D+0.2D*rand.nextDouble()),vec[1]*0.15D*(0.85D+0.4D*rand.nextDouble()));
+				Vec vec = Vec.between(mop.entityHit,shootingEntity).normalized();
+				((EntityLivingBase)mop.entityHit).knockBack(shootingEntity,0.9F,vec.x*0.15D*(0.85D+0.2D*rand.nextDouble()),vec.z*0.15D*(0.85D+0.4D*rand.nextDouble()));
 			}
 			
 			mop.entityHit.attackEntityFrom(DamageSource.onFire,3F);
@@ -56,21 +56,12 @@ public class EntityProjectileFlamingBall extends EntityFireball{
 			mop.entityHit.fire += 3+EnchantmentProtection.getFireTimeForEntity(mop.entityHit,25);
 		}
 		else if (rand.nextInt(3) == 0){
-			switch(mop.sideHit){
-				case 2: --mop.blockZ; break;
-				case 3: ++mop.blockZ; break;
-				case 4: --mop.blockX; break;
-				case 5: ++mop.blockX; break;
-			}
+			Pos pos = Pos.at(mop);
 			
-			BlockPosM tmpPos = BlockPosM.tmp();
+			if (Facing6.fromSide(mop.sideHit).getY() == 0)pos = pos.offset(mop.sideHit);
 			
-			if (tmpPos.set(mop.blockX,mop.blockY,mop.blockZ).getMaterial(worldObj) == Material.air){
-				tmpPos.setBlock(worldObj,Blocks.fire);
-			}
-			else if (tmpPos.set(mop.blockX,mop.blockY+1,mop.blockZ).getMaterial(worldObj) == Material.air){
-				tmpPos.setBlock(worldObj,Blocks.fire);
-			}
+			if (pos.isAir(worldObj))pos.setBlock(worldObj,Blocks.fire);
+			else if (pos.getUp().isAir(worldObj))pos.getUp().setBlock(worldObj,Blocks.fire);
 		}
 		
 		setDead();

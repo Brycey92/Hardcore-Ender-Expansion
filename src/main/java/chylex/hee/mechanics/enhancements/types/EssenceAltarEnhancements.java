@@ -1,36 +1,31 @@
 package chylex.hee.mechanics.enhancements.types;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.init.Blocks;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumChatFormatting;
-import chylex.hee.mechanics.enhancements.EnhancementEnumHelper;
-import chylex.hee.mechanics.enhancements.IEnhancementEnum;
-import chylex.hee.system.util.IItemSelector.IRepresentativeItemSelector;
-import chylex.hee.system.util.IItemSelector.IRepresentativeItemSelector.SimpleItemSelector;
+import net.minecraft.block.Block;
+import chylex.hee.init.BlockList;
+import chylex.hee.init.ItemList;
+import chylex.hee.mechanics.enhancements.EnhancementData;
+import chylex.hee.mechanics.enhancements.EnhancementRegistry;
 
-public enum EssenceAltarEnhancements implements IEnhancementEnum{
-	RANGE(new SimpleItemSelector(Blocks.lapis_block)),
-	SPEED(new SimpleItemSelector(Blocks.redstone_block)),
-	EFFICIENCY(new SimpleItemSelector(Blocks.emerald_block));
+public enum EssenceAltarEnhancements{
+	RANGE, SPEED, EFFICIENCY;
 	
-	private final String name;
-	private IRepresentativeItemSelector itemSelector;
-	
-	EssenceAltarEnhancements(IRepresentativeItemSelector itemSelector){
-		this.name = EnhancementEnumHelper.getName(this,EnumChatFormatting.GREEN);
-		this.itemSelector = itemSelector;
+	public static void register(){
+		EnhancementData<EssenceAltarEnhancements> data = EnhancementRegistry.registerEnhancement(new Block[]{
+			BlockList.essence_altar
+		},EssenceAltarEnhancements.class);
+		
+		data.register(RANGE)
+		.setMaxLevel(3)
+		.addPowder(2,amount -> amount*1.5F)
+		.addIngredient(ItemList.ancient_dust,5,amount -> amount*1.5F);
+		
+		data.register(SPEED)
+		.setMaxLevel(3)
+		.addPowder(2,amount -> amount*1.5F)
+		.addIngredient(ItemList.ancient_dust,5,amount -> amount*1.5F);
+		
+		data.register(EFFICIENCY)
+		.setMaxLevel(3)
+		.addPowder(2,amount -> amount*1.5F)
+		.addIngredient(ItemList.ancient_dust,5,amount -> amount*1.5F);
 	}
-	
-	@Override
-	public String getName(){
-		return name;
-	}
-
-	@Override
-	public IRepresentativeItemSelector getItemSelector(){
-		return itemSelector;
-	}
-
-	@Override
-	public void onEnhanced(ItemStack is, EntityPlayer player){}
 }

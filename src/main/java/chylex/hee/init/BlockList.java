@@ -11,7 +11,6 @@ import net.minecraft.block.material.MapColor;
 import net.minecraft.block.material.Material;
 import net.minecraft.init.Blocks;
 import net.minecraft.item.ItemBlock;
-import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fluids.FluidRegistry;
 import net.minecraftforge.oredict.OreDictionary;
 import chylex.hee.block.*;
@@ -25,10 +24,12 @@ import chylex.hee.block.vanilla.BlockBasicStairs;
 import chylex.hee.game.creativetab.ModCreativeTab;
 import chylex.hee.item.block.ItemBlockDynamicColor;
 import chylex.hee.item.block.ItemBlockEndFlower;
+import chylex.hee.item.block.ItemBlockEndermanHead;
 import chylex.hee.item.block.ItemBlockEnhanceableTile;
 import chylex.hee.item.block.ItemBlockEssenceAltar;
 import chylex.hee.item.block.ItemBlockSlab;
 import chylex.hee.item.block.ItemBlockWithSubtypes;
+import chylex.hee.item.block.ItemBlockWithTooltip;
 import chylex.hee.system.logging.Log;
 import chylex.hee.system.util.GameRegistryUtil;
 import chylex.hee.tileentity.*;
@@ -44,6 +45,7 @@ public final class BlockList{
 	}
 	
 	private static void setItemClass(String blockIdentifier, Class<? extends ItemBlock> itemBlockClass){
+		if (!blocks.containsKey(blockIdentifier))throw new IllegalArgumentException("Block '"+blockIdentifier+"' was not found in the registry!");
 		itemBlocks.put(blockIdentifier,itemBlockClass);
 	}
 	
@@ -58,11 +60,16 @@ public final class BlockList{
 	// BUILDING BLOCKS
 	
 	public static Block stone_brick_wall;
+	public static Block ethereal_lantern;
 	public static Block gloomrock;
 	public static Block gloomrock_smooth_slab;
 	public static Block gloomrock_smooth_stairs;
 	public static Block gloomrock_brick_slab;
 	public static Block gloomrock_brick_stairs;
+	public static Block gloomtorch;
+	public static Block dark_loam;
+	public static Block dark_loam_slab;
+	public static Block ravish_brick;
 	public static Block obsidian_falling;
 	public static Block obsidian_stairs;
 	public static Block obsidian_special;
@@ -100,6 +107,7 @@ public final class BlockList{
 	public static Block experience_table;
 	public static Block accumulation_table;
 	public static Block extraction_table;
+	public static Block loot_chest;
 	
 	// OPAQUE BLOCKS
 	
@@ -112,6 +120,7 @@ public final class BlockList{
 	public static Block ender_goo;
 	public static Block dry_vine;
 	public static Block ancient_web;
+	public static Block ravish_bell;
 	public static Block crossed_decoration;
 	public static Block enderman_head;
 	public static Block death_flower;
@@ -123,10 +132,11 @@ public final class BlockList{
 	// TECHNICAL
 	
 	public static Block end_portal_frame;
+	public static Block void_portal_frame;
+	public static Block void_portal;
 	public static Block death_flower_pot;
 	public static Block laser_beam;
 	public static Block custom_spawner;
-	public static Block biome_core;
 	// TODO SANCTUARY public static Block sanctuary_brain;
 	// TODO SANCTUARY public static Block sanctuary_barrier;
 	public static Block special_effects;
@@ -137,11 +147,16 @@ public final class BlockList{
 		FluidRegistry.registerFluid(BlockEnderGoo.fluid);
 		
 		register("stone_brick_wall", stone_brick_wall = new BlockStoneBrickWall().setBlockName("stoneBrickWall"));
+		register("ethereal_lantern", ethereal_lantern = new BlockBasic(Material.glass).setHardness(0.5F).setResistance(0.25F).setLightLevel(1F).setBlockName("etherealLantern").setBlockTextureName("hardcoreenderexpansion:ethereal_lantern"));
 		register("gloomrock", gloomrock = new BlockGloomrock().setHardness(5F).setResistance(7F).setStepSound(Block.soundTypeStone).setBlockName("gloomrock"));
-		register("gloomrock_smooth_slab", gloomrock_smooth_slab = new BlockBasicSlab(gloomrock,BlockGloomrock.Meta.SMOOTH.value).setBlockName("gloomrockSmoothSlab"));
-		register("gloomrock_smooth_stairs", gloomrock_smooth_stairs = new BlockBasicStairs(gloomrock,BlockGloomrock.Meta.SMOOTH.value).setBlockName("gloomrockSmoothStairs"));
-		register("gloomrock_brick_slab", gloomrock_brick_slab = new BlockBasicSlab(gloomrock,BlockGloomrock.Meta.BRICK.value).setBlockName("gloomrockBrickSlab"));
-		register("gloomrock_brick_stairs", gloomrock_brick_stairs = new BlockBasicStairs(gloomrock,BlockGloomrock.Meta.BRICK.value).setBlockName("gloomrockBrickStairs"));
+		register("gloomrock_smooth_slab", gloomrock_smooth_slab = new BlockBasicSlab(gloomrock,BlockGloomrock.State.SMOOTH.value).setBlockName("gloomrockSmoothSlab"));
+		register("gloomrock_smooth_stairs", gloomrock_smooth_stairs = new BlockBasicStairs(gloomrock,BlockGloomrock.State.SMOOTH.value).setBlockName("gloomrockSmoothStairs"));
+		register("gloomrock_brick_slab", gloomrock_brick_slab = new BlockBasicSlab(gloomrock,BlockGloomrock.State.BRICK.value).setBlockName("gloomrockBrickSlab"));
+		register("gloomrock_brick_stairs", gloomrock_brick_stairs = new BlockBasicStairs(gloomrock,BlockGloomrock.State.BRICK.value).setBlockName("gloomrockBrickStairs"));
+		register("gloomtorch", gloomtorch = new BlockGloomtorch().setLightLevel(0.875F).setBlockName("gloomtorch").setBlockTextureName("hardcoreenderexpansion:gloomtorch"));
+		register("dark_loam", dark_loam = new BlockBasic(Material.sand).setHardness(0.5F).setResistance(0F).setStepSound(Block.soundTypeGravel).setBlockName("darkLoam").setBlockTextureName("hardcoreenderexpansion:dark_loam"));
+		register("dark_loam_slab", dark_loam_slab = new BlockBasicSlab(dark_loam).setBlockName("darkLoamSlab"));
+		register("ravish_brick", ravish_brick = new BlockBasic(Material.rock).setHardness(3F).setResistance(24F).setStepSound(Block.soundTypePiston).setBlockName("ravishBrick").setBlockTextureName("hardcoreenderexpansion:ravish_brick"));
 		register("obsidian_end", obsidian_falling = new BlockObsidianEnd().setHardness(50F).setResistance(2000F).setStepSound(Block.soundTypeStone).setBlockName("obsidianEnd").setBlockTextureName("obsidian"));
 		register("obsidian_stairs", obsidian_stairs = new BlockBasicStairs(Blocks.obsidian,0).setBlockName("obsidianStairs"));
 		register("obsidian_special", obsidian_special = new BlockObsidianSpecial(false).setHardness(28F).setResistance(2000F).setStepSound(Block.soundTypeStone).setBlockName("obsidianSpecial").setBlockTextureName("hardcoreenderexpansion:obsidian_smooth"));
@@ -175,6 +190,7 @@ public final class BlockList{
 		register("experience_table", experience_table = new BlockExperienceTable().setBlockName("experienceTable").setBlockTextureName("experience_table"));
 		register("accumulation_table", accumulation_table = new BlockAccumulationTable().setBlockName("accumulationTable").setBlockTextureName("accumulation_table"));
 		register("energy_extraction_table", extraction_table = new BlockExtractionTable().setBlockName("extractionTable").setBlockTextureName("extraction_table"));
+		register("loot_chest", loot_chest = new BlockLootChest().setBlockUnbreakable().setResistance(6000000F).setLightLevel(0.875F).setStepSound(Block.soundTypePiston).setBlockName("lootChest").setBlockTextureName("loot_chest"));
 		
 		register("endium_block", endium_block = new BlockCompressed(MapColor.pinkColor).setHardness(14F).setResistance(800F).setStepSound(Block.soundTypeMetal).setBlockName("endiumBlock").setBlockTextureName("hardcoreenderexpansion:endium_block"));
 		register("spooky_log", spooky_log = new BlockSpookyLog().setHardness(0.7F).setStepSound(Block.soundTypeWood).setBlockName("spookyLog"));
@@ -183,6 +199,7 @@ public final class BlockList{
 		register("ender_goo", ender_goo = new BlockEnderGoo().setHardness(150F).setLightOpacity(2).setBlockName("enderGoo").setBlockTextureName("hardcoreenderexpansion:endergoo_flow"));
 		register("dry_vine", dry_vine = new BlockDryVine().setHardness(0.15F).setStepSound(Block.soundTypeGrass).setBlockName("dryVine").setBlockTextureName("vine"));
 		register("ancient_web", ancient_web = new BlockAncientCobweb().setLightOpacity(1).setHardness(3.5F).setBlockName("ancientCobweb").setBlockTextureName("web"));
+		register("ravish_bell", ravish_bell = new BlockRavishBell().setHardness(0F).setStepSound(Block.soundTypeGrass).setCreativeTab(null).setBlockName("ravishBell").setBlockTextureName("hardcoreenderexpansion:ravish_bell"));
 		register("crossed_decoration", crossed_decoration = new BlockCrossedDecoration().setHardness(0F).setStepSound(Block.soundTypeGrass).setCreativeTab(null).setBlockName("crossedDecoration"));
 		register("enderman_head_block", enderman_head = new BlockEndermanHead().setHardness(1F).setStepSound(Block.soundTypeStone).setBlockName("endermanHead").setBlockTextureName("hardcoreenderexpansion:enderman_head"));
 		register("death_flower", death_flower = new BlockDeathFlower().setHardness(0F).setResistance(4F).setStepSound(Block.soundTypeGrass).setCreativeTab(null).setBlockName("endFlower").setBlockTextureName("hardcoreenderexpansion:end_flower"));
@@ -192,10 +209,11 @@ public final class BlockList{
 		register("laboratory_glass", laboratory_glass = new BlockLaboratoryGlass().setHardness(5F).setResistance(50F).setLightOpacity(5).setBlockName("laboratoryGlass").setBlockTextureName("hardcoreenderexpansion:laboratory_glass"));
 		
 		register("end_portal_frame", end_portal_frame = new BlockEndPortalFrame().setBlockUnbreakable().setResistance(6000000F).setLightLevel(0.125F).setStepSound(Block.soundTypeGlass).setBlockName("endPortalFrame"));
+		register("void_portal_frame", void_portal_frame = new BlockVoidPortalFrame().setBlockUnbreakable().setResistance(6000000F).setLightLevel(0.125F).setStepSound(Block.soundTypeGlass).setBlockName("voidPortalFrame"));
+		register("void_portal", void_portal = new BlockVoidPortal().setBlockUnbreakable().setResistance(6000000F).setBlockName("voidPortal"));
 		register("death_flower_pot", death_flower_pot = new BlockDeathFlowerPot().setHardness(0F).setStepSound(Block.soundTypeStone).setBlockName("flowerPot").setBlockTextureName("flower_pot"));
 		register("laser_beam", laser_beam = new BlockLaserBeam().setBlockUnbreakable().setResistance(6000000F).setLightLevel(1F).setBlockName("laserBeam").setBlockTextureName("hardcoreenderexpansion:laser_beam"));
 		register("custom_spawner", custom_spawner = new BlockCustomSpawner().setHardness(5F).setStepSound(Block.soundTypeMetal).setBlockName("mobSpawner").setBlockTextureName("mob_spawner"));
-		register("biome_core", biome_core = new BlockBiomeIslandCore().setBlockUnbreakable().setResistance(6000000F).setStepSound(Block.soundTypeStone).setBlockName("biomeIslandCore").setBlockTextureName("bedrock"));
 		// TODO SANCTUARY register("sanctuary_brain", sanctuary_brain = new BlockSanctuaryBrain().setBlockUnbreakable().setResistance(6000000F).setStepSound(Block.soundTypeStone).setBlockName("sanctuaryBrain").setBlockTextureName("bedrock"));
 		// TODO SANCTUARY register("sanctuary_barrier", sanctuary_barrier = new BlockBasic(Material.rock).setBlockUnbreakable().setResistance(6000000F).setBlockName("sanctuaryBarrier").setBlockTextureName("hardcoreenderexpansion:sacred_stone_1"));
 		register("block_special_effects", special_effects = new BlockSpecialEffects());
@@ -203,15 +221,18 @@ public final class BlockList{
 		setItemClass("gloomrock", ItemBlockWithSubtypes.class);
 		setItemClass("gloomrock_smooth_slab", ItemBlockSlab.class);
 		setItemClass("gloomrock_brick_slab", ItemBlockSlab.class);
+		setItemClass("dark_loam_slab", ItemBlockSlab.class);
 		setItemClass("obsidian_special", ItemBlockWithSubtypes.class);
 		setItemClass("obsidian_special_glow", ItemBlockWithSubtypes.class);
 		setItemClass("essence_altar", ItemBlockEssenceAltar.class);
 		setItemClass("enhanced_brewing_stand_block", ItemBlockEnhanceableTile.class);
 		setItemClass("enhanced_tnt", ItemBlockEnhanceableTile.class);
+		setItemClass("loot_chest", ItemBlockWithTooltip.class);
 		setItemClass("end_stone_terrain", ItemBlockWithSubtypes.class);
 		setItemClass("dry_vine", ItemBlockDynamicColor.class);
 		setItemClass("ancient_web", ItemBlockDynamicColor.class);
 		setItemClass("crossed_decoration", ItemBlockWithSubtypes.class);
+		setItemClass("enderman_head_block", ItemBlockEndermanHead.class);
 		setItemClass("death_flower", ItemBlockEndFlower.class);
 		setItemClass("sphalerite", ItemBlockWithSubtypes.class);
 		setItemClass("ravaged_brick", ItemBlockWithSubtypes.class);
@@ -219,36 +240,44 @@ public final class BlockList{
 		setItemClass("dungeon_puzzle", ItemBlockWithSubtypes.class);
 		setItemClass("block_special_effects", ItemBlockWithSubtypes.class);
 		setItemClass("persegrit", ItemBlockWithSubtypes.class);
-		setItemClass("sacred_stone", ItemBlockWithSubtypes.class);
+		// TODO setItemClass("sacred_stone", ItemBlockWithSubtypes.class);
 		setItemClass("end_portal_frame", ItemBlockWithSubtypes.class);
+		setItemClass("void_portal_frame", ItemBlockWithSubtypes.class);
+		setItemClass("void_portal", ItemBlockWithSubtypes.class);
 	}
 	
 	public static void registerBlocks(){
 		BlockReplaceHelper.replaceBlock(Blocks.dragon_egg, new BlockDragonEggCustom());
-		BlockReplaceHelper.replaceBlock(Blocks.end_portal,new BlockEndPortalCustom());
-		BlockReplaceHelper.replaceBlock(Blocks.end_portal_frame,new BlockEndPortalFrameCustom());
+		BlockReplaceHelper.replaceBlock(Blocks.end_portal, new BlockEndPortalCustom());
+		BlockReplaceHelper.replaceBlock(Blocks.end_portal_frame, new BlockEndPortalFrameCustom());
+		
+		Blocks.end_portal.setBlockName("endPortal");
 		
 		for(Entry<String,Block> entry:BlockList.blocks.entrySet()){
 			GameRegistryUtil.registerBlock(entry.getValue(),entry.getKey(),itemBlocks.getOrDefault(entry.getKey(),ItemBlock.class));
 		}
 		
-		ModCreativeTab.tabMain.list.addBlocks(
+		ModCreativeTab.tabMain.list.add(
 			Blocks.dragon_egg,obsidian_falling,obsidian_special,obsidian_special_glow,obsidian_stairs,
-			gloomrock,gloomrock_smooth_slab,gloomrock_smooth_stairs,gloomrock_brick_slab,gloomrock_brick_stairs,
-			essence_altar,decomposition_table,experience_table,accumulation_table,extraction_table,
+			ethereal_lantern,gloomrock,gloomrock_smooth_slab,gloomrock_smooth_stairs,gloomrock_brick_slab,gloomrock_brick_stairs,gloomtorch,
+			end_portal_frame,void_portal_frame,Blocks.end_stone,dark_loam,dark_loam_slab,ravish_brick,
+			essence_altar,decomposition_table,experience_table,accumulation_table,extraction_table,loot_chest,
 			end_powder_ore,endium_ore,stardust_ore,igneous_rock_ore,instability_orb_ore,energy_cluster,
 			endium_block,
 			sphalerite,end_terrain,spooky_log,spooky_leaves,
 			ravaged_brick,ravaged_brick_smooth,ravaged_brick_glow,ravaged_brick_slab,ravaged_brick_stairs,ravaged_brick_fence,
 			dungeon_puzzle,cinder,persegrit,laboratory_obsidian,laboratory_floor,laboratory_stairs,laboratory_glass,
 			stone_brick_wall,
-			/* TODO SANCTUARY sacred_stone,*/dry_vine,ancient_web,crossed_decoration,death_flower
+			/* TODO SANCTUARY sacred_stone,*/dry_vine,ancient_web,ravish_bell,crossed_decoration,death_flower
 		);
 		
-		if (Log.isDeobfEnvironment)ModCreativeTab.tabMain.list.addBlocks(special_effects);
+		if (Log.isDeobfEnvironment)ModCreativeTab.tabMain.list.add(special_effects);
+		
+		itemBlocks.clear();
 	}
 	
 	public static void configureBlocks(){
+		BlockList.dark_loam.setHarvestLevel("shovel", 0);
 		BlockList.obsidian_falling.setHarvestLevel("pickaxe", 3);
 		BlockList.obsidian_stairs.setHarvestLevel("pickaxe", 3);
 		BlockList.obsidian_special.setHarvestLevel("pickaxe", 3);
@@ -275,8 +304,8 @@ public final class BlockList{
 		OreDictionary.registerOre("oreHeeIgneousRock", BlockList.igneous_rock_ore);
 		OreDictionary.registerOre("oreHeeInstabilityOrb", BlockList.instability_orb_ore);
 		
-		MinecraftForge.EVENT_BUS.register(BlockList.ender_goo);
-		MinecraftForge.EVENT_BUS.register(BlockList.ancient_web);
+		GameRegistryUtil.registerEventHandler(BlockList.ender_goo);
+		GameRegistryUtil.registerEventHandler(BlockList.ancient_web);
 	}
 	
 	public static void registerTileEntities(){
@@ -289,10 +318,12 @@ public final class BlockList{
 		GameRegistryUtil.registerTileEntity(TileEntityExperienceTable.class, "ExperienceTable");
 		GameRegistryUtil.registerTileEntity(TileEntityAccumulationTable.class, "AccumulationTable");
 		GameRegistryUtil.registerTileEntity(TileEntityExtractionTable.class, "EnergyExtractionTable");
+		GameRegistryUtil.registerTileEntity(TileEntityLootChest.class, "LootChest");
 		GameRegistryUtil.registerTileEntity(TileEntityEnergyCluster.class, "EnergyCluster");
 		GameRegistryUtil.registerTileEntity(TileEntityEnhancedTNT.class, "EnhancedTNT");
 		GameRegistryUtil.registerTileEntity(TileEntityEndPortalCustom.class, "EndPortal");
 		GameRegistryUtil.registerTileEntity(TileEntityEndPortalFrame.class, "EndPortalFrame");
+		GameRegistryUtil.registerTileEntity(TileEntityVoidPortal.class, "VoidPortal");
 		// TODO SANCTUARY GameRegistryUtil.registerTileEntity(TileEntitySanctuaryBrain.class, "SanctuaryBrain");
 	}
 	

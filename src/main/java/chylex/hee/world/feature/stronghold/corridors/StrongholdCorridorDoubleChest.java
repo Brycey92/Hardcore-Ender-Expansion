@@ -22,7 +22,7 @@ public class StrongholdCorridorDoubleChest extends StrongholdCorridorEmbedded{
 		return corridors;
 	}
 	
-	private byte variation;
+	private final int variation;
 	
 	public StrongholdCorridorDoubleChest(boolean dirX, byte variation){
 		super(dirX,new Size(dirX ? 5 : 7,5,dirX ? 7 : 5));
@@ -52,11 +52,11 @@ public class StrongholdCorridorDoubleChest extends StrongholdCorridorEmbedded{
 		z = z+maxZ/2+dir.getZ()*2;
 		
 		// chest
-		placeBlock(world,rand,IBlockPicker.basic(Blocks.chest),x+left.getX(),y+2,z+left.getZ());
-		world.setTileEntity(x+left.getX(),y+2,z+left.getZ(),Meta.generateChest(dir.opposite(),generateLoot));
+		placeBlock(world,rand,placeChest,x+left.getX(),y+2,z+left.getZ());
+		world.setTileEntity(x+left.getX(),y+2,z+left.getZ(),Meta.generateChest(dir.opposite(),generateLootGeneral));
 		
-		placeBlock(world,rand,IBlockPicker.basic(Blocks.chest),x+right.getX(),y+2,z+right.getZ());
-		world.setTileEntity(x+right.getX(),y+2,z+right.getZ(),Meta.generateChest(dir.opposite(),generateLoot));
+		placeBlock(world,rand,placeChest,x+right.getX(),y+2,z+right.getZ());
+		world.setTileEntity(x+right.getX(),y+2,z+right.getZ(),Meta.generateChest(dir.opposite(),generateLootGeneral));
 		
 		// pattern
 		switch(variation){

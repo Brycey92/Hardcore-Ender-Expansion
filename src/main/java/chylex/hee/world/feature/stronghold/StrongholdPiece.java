@@ -1,6 +1,5 @@
 package chylex.hee.world.feature.stronghold;
 import java.util.Random;
-import net.minecraft.block.Block;
 import net.minecraft.init.Blocks;
 import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntityChest;
@@ -8,14 +7,15 @@ import chylex.hee.init.BlockList;
 import chylex.hee.system.abstractions.BlockInfo;
 import chylex.hee.system.abstractions.Meta;
 import chylex.hee.system.abstractions.facing.Facing4;
+import chylex.hee.system.util.MathUtil;
 import chylex.hee.world.feature.WorldGenStronghold;
-import chylex.hee.world.structure.StructureWorld;
+import chylex.hee.world.loot.WeightedLootTable;
 import chylex.hee.world.structure.dungeon.StructureDungeonPiece;
 import chylex.hee.world.structure.dungeon.generators.DungeonGeneratorSpreading.ISpreadingGeneratorPieceType;
 import chylex.hee.world.structure.util.IBlockPicker;
 import chylex.hee.world.structure.util.IStructureTileEntity;
-import chylex.hee.world.util.Size;
 import chylex.hee.world.util.RandomAmount;
+import chylex.hee.world.util.Size;
 
 public abstract class StrongholdPiece extends StructureDungeonPiece{
 	protected enum Type implements ISpreadingGeneratorPieceType{
@@ -33,6 +33,7 @@ public abstract class StrongholdPiece extends StructureDungeonPiece{
 	}
 	
 	protected static final IConnectWith fromRoom = type -> type == Type.CORRIDOR || type == Type.DOOR;
+	protected static final IConnectWith fromDeadEnd = type -> type == Type.CORRIDOR;
 	protected static final IConnectWith fromDoor = type -> true;
 	protected static final IConnectWith withAnything = type -> true;
 	
@@ -61,43 +62,54 @@ public abstract class StrongholdPiece extends StructureDungeonPiece{
 	};
 	
 	protected static final IBlockPicker placeStoneBrickPlain = blocksStoneBrick[0];
-	protected static final IBlockPicker placeAir = BlockInfo.air;
+	protected static final IBlockPicker placeStoneBrickChiseled = new BlockInfo(Blocks.stonebrick,Meta.stoneBrickChiseled);
 	
 	protected static final IBlockPicker placeStoneBrickStairs(Facing4 ascendsTowards, boolean flip){
 		return new BlockInfo(Blocks.stone_brick_stairs,Meta.getStairs(ascendsTowards,flip));
 	}
 	
-	protected static final void placeStairOutline(StructureWorld world, Random rand, Block block, int centerX, int y, int centerZ, int distance, boolean outwards, boolean flip){
-		IBlockPicker[] stairs = new IBlockPicker[]{
-			IBlockPicker.basic(block,Meta.getStairs(outwards ? Facing4.SOUTH_POSZ : Facing4.NORTH_NEGZ,flip)),
-			IBlockPicker.basic(block,Meta.getStairs(outwards ? Facing4.NORTH_NEGZ : Facing4.SOUTH_POSZ,flip)),
-			IBlockPicker.basic(block,Meta.getStairs(outwards ? Facing4.EAST_POSX : Facing4.WEST_NEGX,flip)),
-			IBlockPicker.basic(block,Meta.getStairs(outwards ? Facing4.WEST_NEGX : Facing4.EAST_POSX,flip))
-		};
-		
-		for(int facingInd = 0, off, perX, perZ; facingInd < Facing4.list.length; facingInd++){
-			Facing4 facing = Facing4.list[facingInd];
-			off = facing.getX() == 0 ? distance-1 : distance;
-			perX = facing.perpendicular().getX();
-			perZ = facing.perpendicular().getZ();
-			placeLine(world,rand,stairs[facingInd],centerX+distance*facing.getX()-off*perX,y,centerZ+distance*facing.getZ()-off*perZ,centerX+distance*facing.getX()+off*perX,y,centerZ+distance*facing.getZ()+off*perZ);
-		}
-	}
-	
-	protected static final IStructureTileEntity generateLoot = (tile, rand) -> {
-		TileEntityChest chest = (TileEntityChest)tile;
-		
-		for(int items = RandomAmount.aroundCenter.generate(rand,3,10); items > 0; items--){
-			chest.setInventorySlotContents(rand.nextInt(chest.getSizeInventory()),WorldGenStronghold.loot.generateWeighted(null,rand));
+	private static final void generateLoot(WeightedLootTable lootTable, int items, int cobwebs, TileEntityChest chest, Random rand){
+		while(items-- > 0){
+			chest.setInventorySlotContents(rand.nextInt(chest.getSizeInventory()),lootTable.generateWeighted(null,rand));
 		}
 		
-		for(int cobwebs = rand.nextInt(7), slot; cobwebs > 0; cobwebs--){
+		for(int slot; cobwebs > 0; cobwebs--){
 			slot = rand.nextInt(chest.getSizeInventory());
 			if (chest.getStackInSlot(slot) == null)chest.setInventorySlotContents(slot,new ItemStack(rand.nextInt(3) == 0 ? BlockList.ancient_web : Blocks.web));
 		}
+	}
+	
+	protected static final IStructureTileEntity generateLootGeneral = (tile, rand) -> {
+		generateLoot(WorldGenStronghold.lootGeneral,RandomAmount.aroundCenter.generate(rand,3,10),rand.nextInt(7),(TileEntityChest)tile,rand);
+	};
+	
+	protected static final IStructureTileEntity generateLootLibraryMain = (tile, rand) -> {
+		generateLoot(WorldGenStronghold.lootLibrary,RandomAmount.linear.generate(rand,9,11),2+rand.nextInt(2),(TileEntityChest)tile,rand);
+	};
+	
+	protected static final IStructureTileEntity generateLootLibrarySecondary = (tile, rand) -> {
+		generateLoot(WorldGenStronghold.lootLibrary,RandomAmount.aroundCenter.generate(rand,4,6),4+rand.nextInt(3),(TileEntityChest)tile,rand);
 	};
 	
 	public StrongholdPiece(Type type, Size size){
 		super(type,size);
+	}
+	
+	/**
+	 * Determines the multiplier of calculated weight. Using the default settings:<br>
+	 * - corridors with several connections get higher increase than rooms, to encourage interesting paths<br>
+	 * - rooms have higher importance than corridors, but have a gentler curve with increasing connections
+	 */
+	@Override
+	public final int calculateInstWeight(int availableConnections){
+		return MathUtil.ceil(Math.pow(availableConnections,getWeightFactor())*getWeightMultiplier());
+	}
+	
+	protected float getWeightFactor(){
+		return type == Type.ROOM ? 1.5F : type == Type.CORRIDOR ? 2.5F : 1F;
+	}
+	
+	protected float getWeightMultiplier(){
+		return type == Type.ROOM ? 2F : type == Type.CORRIDOR ? 1F : 0F;
 	}
 }

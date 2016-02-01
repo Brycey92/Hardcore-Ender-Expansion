@@ -1,7 +1,6 @@
 package chylex.hee;
 import java.io.File;
 import java.util.Map;
-import net.minecraftforge.common.MinecraftForge;
 import chylex.hee.api.HeeIMC;
 import chylex.hee.game.ConfigHandler;
 import chylex.hee.game.ModIntegrity;
@@ -11,7 +10,6 @@ import chylex.hee.game.achievements.AchievementManager;
 import chylex.hee.game.commands.HeeAdminCommand;
 import chylex.hee.game.commands.HeeBaconCommand;
 import chylex.hee.game.commands.HeeDebugCommand;
-import chylex.hee.game.creativetab.ModCreativeTab;
 import chylex.hee.game.integration.ModIntegrationManager;
 import chylex.hee.game.save.SaveData;
 import chylex.hee.gui.core.GuiHandler;
@@ -21,7 +19,10 @@ import chylex.hee.init.ItemList;
 import chylex.hee.init.ModInitHandler;
 import chylex.hee.mechanics.MiscEvents;
 import chylex.hee.mechanics.RecipeList;
-import chylex.hee.mechanics.compendium.content.fragments.KnowledgeFragmentCrafting;
+import chylex.hee.mechanics.causatum.CausatumEventHandler;
+import chylex.hee.mechanics.compendium.KnowledgeRegistrations;
+import chylex.hee.mechanics.compendium.events.CompendiumEvents;
+import chylex.hee.mechanics.enhancements.EnhancementRegistry;
 import chylex.hee.packets.PacketPipeline;
 import chylex.hee.proxy.FXCommonProxy;
 import chylex.hee.proxy.ModCommonProxy;
@@ -29,9 +30,8 @@ import chylex.hee.proxy.NotificationCommonProxy;
 import chylex.hee.system.ReflectionPublicizer;
 import chylex.hee.system.logging.Log;
 import chylex.hee.system.logging.Stopwatch;
-import chylex.hee.system.test.UnitTest.RunTime;
-import chylex.hee.system.test.UnitTester;
 import chylex.hee.world.DimensionOverride;
+import chylex.hee.world.end.server.TerritoryEvents;
 import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.Mod;
 import cpw.mods.fml.common.Mod.EventHandler;
@@ -75,12 +75,14 @@ public class HardcoreEnderExpansion{
 	public void onPreInit(FMLPreInitializationEvent e){
 		Stopwatch.time("PreInitEvent");
 		
-		ReflectionPublicizer.load();
 		modVersion = e.getModMetadata().version;
 		configPath = e.getSuggestedConfigurationFile().getParentFile().getName();
 		sourceFile = e.getSourceFile();
+		
+		e.getModMetadata().description = e.getModMetadata().description.replace('$','\u00a7');
+		
+		ReflectionPublicizer.load();
 		Log.initializeDebug();
-		UnitTester.load();
 		
 		// CONFIGURATION LOAD
 
@@ -93,7 +95,6 @@ public class HardcoreEnderExpansion{
 		
 		Stopwatch.time("PreInitEvent - data");
 		
-		ModCreativeTab.registerTabs();
 		BlockList.registerBlocks();
 		ItemList.registerItems();
 		BlockList.configureBlocks();
@@ -116,12 +117,13 @@ public class HardcoreEnderExpansion{
 
 		Stopwatch.time("PreInitEvent - events");
 		
-		MinecraftForge.EVENT_BUS.register(new MiscEvents());
-		// TODO CompendiumEvents.register();
+		MiscEvents.register();
+		CompendiumEvents.register();
 		// TODO CharmPouchHandler.register();
+		TerritoryEvents.register();
 		SaveData.register();
+		CausatumEventHandler.register();
 		// TODO CurseEvents.register();
-		// TODO CausatumEvents.register();
 		// TODO DragonChunkManager.register();
 		ModTransition.register();
 		
@@ -131,9 +133,8 @@ public class HardcoreEnderExpansion{
 		proxy.registerRenderers();
 		notifications.register();
 		
-		UnitTester.trigger(RunTime.PREINIT);
-		
 		ModInitHandler.finishPreInit();
+		ModIntegrationManager.sendIMCs();
 		
 		Stopwatch.finish("PreInitEvent");
 	}
@@ -145,6 +146,7 @@ public class HardcoreEnderExpansion{
 		PacketPipeline.initializePipeline();
 		NetworkRegistry.INSTANCE.registerGuiHandler(this,GuiHandler.instance);
 		RecipeList.addRecipes();
+		EnhancementRegistry.init();
 		// TODO WorldLoot.registerWorldLoot();
 		
 		Stopwatch.finish("InitEvent");
@@ -155,7 +157,7 @@ public class HardcoreEnderExpansion{
 		Stopwatch.time("PostInitEvent");
 		
 		HeeIMC.runPostInit();
-		// TODO KnowledgeRegistrations.initialize();
+		KnowledgeRegistrations.initialize();
 		// TODO OrbAcquirableItems.initialize();
 		// TODO OrbSpawnableMobs.initialize();
 		ModIntegrationManager.integrateMods();
@@ -169,12 +171,8 @@ public class HardcoreEnderExpansion{
 		Stopwatch.time("LoadCompleteEvent");
 		
 		try{
-			KnowledgeFragmentCrafting.verifyRecipes();
 			ModIntegrity.verify();
 			HeeIMC.runLoadComplete();
-			
-			UnitTester.trigger(RunTime.LOADCOMPLETE);
-			UnitTester.finalizeEventTests();
 		}
 		catch(Throwable t){
 			FMLCommonHandler.instance().raiseException(t,"Error running LoadComplete event in Hardcore Ender Expansion!",true);

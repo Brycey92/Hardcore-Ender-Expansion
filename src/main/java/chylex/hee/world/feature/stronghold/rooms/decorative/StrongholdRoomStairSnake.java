@@ -1,7 +1,6 @@
 package chylex.hee.world.feature.stronghold.rooms.decorative;
 import java.util.Random;
 import net.minecraft.init.Blocks;
-import chylex.hee.init.BlockList;
 import chylex.hee.system.abstractions.Meta;
 import chylex.hee.system.abstractions.Pos.PosMutable;
 import chylex.hee.system.abstractions.facing.Facing4;
@@ -25,7 +24,7 @@ public class StrongholdRoomStairSnake extends StrongholdRoom{
 		placeStairOutline(world,rand,Blocks.stone_brick_stairs,centerX,y,centerZ,1,true,false);
 		
 		// snake
-		Facing4 snakeFacing = Facing4.list[rand.nextInt(Facing4.list.length)];
+		Facing4 snakeFacing = Facing4.random(rand);
 		
 		for(int snake = 0; snake < 3; snake++){
 			placeBlock(world,rand,placeStoneBrickStairs(snakeFacing = snakeFacing.opposite(),false),centerX,y+1+snake,centerZ);
@@ -45,7 +44,7 @@ public class StrongholdRoomStairSnake extends StrongholdRoom{
 		
 		for(int attempt = 0; attempt < 5; attempt++){
 			webPos.set(x+1+rand.nextInt(5),y+maxY-1-rand.nextInt(2),z+1+rand.nextInt(5));
-			if (world.isAir(webPos.x,webPos.y,webPos.z))placeBlock(world,rand,IBlockPicker.basic(BlockList.ancient_web),webPos.x,webPos.y,webPos.z);
+			if (world.isAir(webPos))placeBlock(world,rand,placeAncientWeb,webPos.x,webPos.y,webPos.z);
 		}
 	}
 }

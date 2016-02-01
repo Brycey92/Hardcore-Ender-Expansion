@@ -1,7 +1,6 @@
 package chylex.hee.render.tileentity;
 import java.nio.FloatBuffer;
 import java.util.Random;
-import org.lwjgl.opengl.GL11;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.ActiveRenderInfo;
 import net.minecraft.client.renderer.GLAllocation;
@@ -9,14 +8,18 @@ import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.tileentity.TileEntitySpecialRenderer;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.ResourceLocation;
+import org.lwjgl.opengl.GL11;
 import chylex.hee.proxy.ModClientProxy;
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
 
+@SideOnly(Side.CLIENT)
 public abstract class RenderTilePortalBase extends TileEntitySpecialRenderer{
 	private static final ResourceLocation texPortalBackground = new ResourceLocation("textures/environment/end_sky.png");
 	private static final ResourceLocation texPortalLayers = new ResourceLocation("textures/entity/end_portal.png");
-	private FloatBuffer buffer = GLAllocation.createDirectFloatBuffer(16);
-	
 	protected static final Random rand = ModClientProxy.seedableRand;
+	
+	private final FloatBuffer buffer = GLAllocation.createDirectFloatBuffer(16);
 	
 	protected TileEntity tile;
 	protected float red, green, blue, colorMp;
@@ -34,6 +37,14 @@ public abstract class RenderTilePortalBase extends TileEntitySpecialRenderer{
 	
 	protected float getScale(int layer){
 		return layer == 0 ? 0.125F : layer == 1 ? 0.5F : 0.0625F;
+	}
+	
+	protected long getColorSeed(){
+		return 31100L;
+	}
+	
+	protected float getTranslation(){
+		return (Minecraft.getSystemTime()%700000L)/700000F;
 	}
 	
 	protected void generateColors(int layer){
@@ -56,7 +67,7 @@ public abstract class RenderTilePortalBase extends TileEntitySpecialRenderer{
 		
 		GL11.glDisable(GL11.GL_LIGHTING);
 		GL11.glEnable(GL11.GL_BLEND);
-		rand.setSeed(31100L);
+		rand.setSeed(getColorSeed());
 		
 		onRender();
 		
@@ -95,7 +106,7 @@ public abstract class RenderTilePortalBase extends TileEntitySpecialRenderer{
 			GL11.glMatrixMode(GL11.GL_TEXTURE);
 			GL11.glPushMatrix();
 			GL11.glLoadIdentity();
-			GL11.glTranslatef(0F,(Minecraft.getSystemTime()%700000L)/700000F,0F);
+			GL11.glTranslatef(0F,getTranslation(),0F);
 			GL11.glScalef(scale,scale,scale);
 			GL11.glTranslatef(0.5F,0.5F,0F);
 			GL11.glRotatef((layer*layer*4321+layer*9)*2F,0F,0F,1F);

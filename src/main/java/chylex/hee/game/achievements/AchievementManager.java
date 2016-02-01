@@ -13,18 +13,16 @@ import net.minecraftforge.common.AchievementPage;
 import chylex.hee.init.BlockList;
 import chylex.hee.init.ItemList;
 import chylex.hee.item.ItemSpecialEffects;
-import chylex.hee.mechanics.compendium.KnowledgeRegistrations;
-import chylex.hee.proxy.ModCommonProxy;
 
 public final class AchievementManager{
 	public static final String achievementScreenName = "HEE Achievements";
 	public static final String challengeScreenName = "HEE Challenges";
 	
-	private static List<HeeAchievement> achievements = new ArrayList<>();
-	private static List<HeeAchievement> challenges = new ArrayList<>();
-	public static Map<String,String> challengeStrings = new HashMap<>();
+	private static final List<HeeAchievement> achievements = new ArrayList<>();
+	private static final List<HeeAchievement> challenges = new ArrayList<>();
+	public static final Map<String,String> challengeStrings = new HashMap<>();
 	
-	public static HeeAchievement
+	public static final HeeAchievement
 		/*  8 */ ENDER_COMPENDIUM = addAchievement(8, "enderCompendium", -2, -1, ItemList.special_effects, ItemSpecialEffects.achievementCompendiumIcon, null),
 		/*  0 */ GO_INTO_THE_END = addAchievement(0, "newAdventures", 0, -1, Blocks.dragon_egg, null),
 		
@@ -52,21 +50,21 @@ public final class AchievementManager{
 		/* 21 */ SCORCHING_PICKAXE = addAchievement(21, "scorchingPickaxe", 8, 2, ItemList.scorching_pickaxe, BIOME_BURNING_MOUNTAINS),
 		/* 17 */ BIOME_ENCHANTED_ISLAND = addAchievement(17, "biomeEnchantedIsland", 6, 5, BlockList.end_terrain, 2, null),
 		/* 22 */ TRANSFERENCE_GEM = addAchievement(22, "transferenceGem", 8, 4, ItemList.transference_gem, BIOME_ENCHANTED_ISLAND),
-		/* 23 */ ENERGY_WAND = addAchievement(23, "energyWand", 8, 5, ItemList.energy_wand, 1, BIOME_ENCHANTED_ISLAND),
+		/* 23 */ ENERGY_WAND = addAchievement(23, "energyWand", 8, 5, ItemList.energy_receptacle, 1, BIOME_ENCHANTED_ISLAND),
 		
 		/*  0 */ CHALLENGE_HARD0DEATHS = addChallenge(0, "hard0Deaths", "hard"),
 		/*  1 */ CHALLENGE_BEDEXPLODE = addChallenge(1, "bedExplode", "mediumorhard"),
 		/*  2 */ CHALLENGE_NOENDERMAN = addChallenge(2, "noEnderman", "mediumorhard");
 	
 	static{
-		GO_INTO_THE_END.setKnowledgeObj(KnowledgeRegistrations.DRAGON_LAIR);
+		/* TODO GO_INTO_THE_END.setKnowledgeObj(KnowledgeRegistrations.DRAGON_LAIR);
 		ENHANCED_ENDER_PEARL.setKnowledgeObj(KnowledgeRegistrations.ENDER_PEARL_ENHANCEMENTS);
 		ENHANCED_ENDER_PEARL_FULL.setKnowledgeObj(KnowledgeRegistrations.ENDER_PEARL_ENHANCEMENTS);
 		ENDER_EYE_KILL.setKnowledgeObj(KnowledgeRegistrations.ENDER_EYE);
 		BIOME_INFESTED_FOREST.setKnowledgeObj(KnowledgeRegistrations.INFESTED_FOREST_BIOME);
 		CURSE.setKnowledgeObj(KnowledgeRegistrations.CURSE);
 		BIOME_BURNING_MOUNTAINS.setKnowledgeObj(KnowledgeRegistrations.BURNING_MOUNTAINS_BIOME);
-		BIOME_ENCHANTED_ISLAND.setKnowledgeObj(KnowledgeRegistrations.ENCHANTED_ISLAND_BIOME);
+		BIOME_ENCHANTED_ISLAND.setKnowledgeObj(KnowledgeRegistrations.ENCHANTED_ISLAND_BIOME);*/
 	}
 	
 	public static void register(){
@@ -91,13 +89,13 @@ public final class AchievementManager{
 	}
 
 	private static HeeAchievement addAchievement(int id, String stringId, int x, int y, ItemStack is, Achievement parentAchievement){
-		HeeAchievement achievement = (HeeAchievement)new HeeAchievement("achievement.hee."+(ModCommonProxy.achievementStartId+40+id),stringId,x,y,is,parentAchievement).registerStat();
+		HeeAchievement achievement = (HeeAchievement)new HeeAchievement("achievement.hee2."+id,stringId,x,y,is,parentAchievement).registerStat();
 		achievements.add(achievement);
 		return achievement;
 	}
 	
 	private static HeeAchievement addChallenge(int id, String stringId, String difficultyLevel){
-		HeeChallenge challenge = (HeeChallenge)new HeeChallenge("achievement.hee."+(ModCommonProxy.achievementStartId+120+id),stringId,-1+(id%2 == 0 ? 0 : 1),-2+id,new ItemStack(Items.diamond_sword)).registerStat();
+		HeeChallenge challenge = (HeeChallenge)new HeeChallenge("achievement.hee2.ch."+id,stringId,-1+(id%2 == 0 ? 0 : 1),-2+id,new ItemStack(Items.diamond_sword)).registerStat();
 		challenges.add(challenge);
 		challengeStrings.put(stringId,difficultyLevel);
 		return challenge;

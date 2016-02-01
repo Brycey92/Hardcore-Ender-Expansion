@@ -1,43 +1,59 @@
 package chylex.hee.render;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
+import java.util.Arrays;
+import java.util.Objects;
+import java.util.stream.IntStream;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.resources.I18n;
+import net.minecraft.util.MovingObjectPosition.MovingObjectType;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.client.event.DrawBlockHighlightEvent;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.client.event.RenderGameOverlayEvent.ElementType;
-import net.minecraftforge.common.MinecraftForge;
+import org.apache.commons.lang3.StringUtils;
 import org.lwjgl.opengl.GL11;
 import chylex.hee.block.BlockEnderGoo;
+import chylex.hee.gui.helpers.GuiAchievementOverlay;
 import chylex.hee.init.BlockList;
+import chylex.hee.mechanics.compendium.content.KnowledgeObject;
+import chylex.hee.mechanics.compendium.elements.KnowledgeNotification;
 import chylex.hee.mechanics.energy.EnergyClusterData;
 import chylex.hee.system.abstractions.Pos.PosMutable;
 import chylex.hee.system.util.DragonUtil;
+import chylex.hee.system.util.GameRegistryUtil;
 import chylex.hee.tileentity.TileEntityEnergyCluster;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
 @SideOnly(Side.CLIENT)
-public class OverlayManager{
-	private static OverlayManager instance;
+public final class OverlayManager{
+	private static final OverlayManager instance = new OverlayManager();
 	private static final ResourceLocation texGoo = new ResourceLocation("hardcoreenderexpansion:textures/overlay/endergoo.png");
 	private static final PosMutable tmpPos = new PosMutable();
 	
-	private TileEntityEnergyCluster clusterLookedAt;
-	private final List<Notification> notifications = new ArrayList<>();
+	private static final KnowledgeNotification[] notifications = new KnowledgeNotification[8];
+	private static boolean hasNotification;
 	
-	public static void addNotification(String notification){
-		if (instance == null)register();
-		instance.notifications.add(new Notification(notification));
+	private static final GuiAchievementOverlay achievementOverlay = new GuiAchievementOverlay();
+	
+	private TileEntityEnergyCluster clusterLookedAt;
+	
+	public static void addNotification(final KnowledgeObject<?> obj){
+		hasNotification = true;
+		
+		IntStream.range(0,notifications.length).filter(index -> notifications[index] == null).findFirst().ifPresent(index -> {
+			notifications[index] = new KnowledgeNotification(obj);
+		});
+	}
+	
+	public static GuiAchievementOverlay getAchievementOverlay(){
+		return achievementOverlay;
 	}
 	
 	public static void register(){
-		if (instance == null)MinecraftForge.EVENT_BUS.register(instance = new OverlayManager());
+		GameRegistryUtil.registerEventHandler(instance);
 	}
 	
 	private OverlayManager(){}
@@ -78,39 +94,20 @@ public class OverlayManager{
 		if (mc.thePlayer == null)return;
 		
 		if (e.type == ElementType.HOTBAR){
-			if (!notifications.isEmpty()){
-				FontRenderer font = mc.fontRenderer;
-				
-				boolean prevUnicode = font.getUnicodeFlag();
-				font.setUnicodeFlag(true);
-	
-				int scale = e.resolution.getScaleFactor();
-				double fontScale = scale == 1 ? 2D:
-								   scale == 2 ? 1D:
-								   scale == 3 ? 0.677D : 0.5D,
-					   fontScale2 = 1D/fontScale;
-				
-				GL11.glPushMatrix();
-				GL11.glScaled(fontScale,fontScale,fontScale);
-				GL11.glEnable(GL11.GL_BLEND);
-				GL11.glBlendFunc(GL11.GL_SRC_ALPHA,GL11.GL_ONE_MINUS_SRC_ALPHA);
+			achievementOverlay.update();
+			
+			if (hasNotification){
 				GL11.glColor4f(1F,1F,1F,1F);
 				GL11.glDisable(GL11.GL_DEPTH_TEST);
 				
-				int scaledW = (int)(e.resolution.getScaledWidth()*fontScale2), scaledH = (int)(e.resolution.getScaledHeight()*fontScale2);
-	
-				for(Iterator<Notification> iter = notifications.iterator(); iter.hasNext();){
-					Notification n = iter.next();
-					
-					int w = font.getStringWidth(n.text);
-					font.drawStringWithShadow(n.text,scaledW-w-3,scaledH-10-n.yy,((int)Math.max(4,Math.floor(255F*n.alpha)))<<24|255<<16|255<<8|255);
-					if (n.update())iter.remove();
+				for(int ind = 0; ind < notifications.length; ind++){
+					if (notifications[ind] != null && notifications[ind].render(mc.ingameGUI,e.partialTicks,e.resolution.getScaledWidth()-13-24*ind,e.resolution.getScaledHeight()+12)){
+						notifications[ind] = null;
+						if (Arrays.stream(notifications).allMatch(Objects::isNull))hasNotification = false;
+					}
 				}
 				
-				font.setUnicodeFlag(prevUnicode);
 				GL11.glEnable(GL11.GL_DEPTH_TEST);
-				GL11.glDisable(GL11.GL_BLEND);
-				GL11.glPopMatrix();
 			}
 			
 			if (clusterLookedAt != null){
@@ -126,8 +123,8 @@ public class OverlayManager{
 				
 				if (data != null){
 					drawStringCentered(font,I18n.format("energy.overlay.title"),x,y-40,255,255,255);
-					drawStringCentered(font,I18n.format("energy.overlay.holding").replace("$",DragonUtil.formatTwoPlaces.format(data.getEnergyLevel())),x,y-30,220,220,220);
-					drawStringCentered(font,I18n.format("energy.overlay.regen").replace("$",DragonUtil.formatTwoPlaces.format(data.getMaxLevel())),x,y-20,220,220,220);
+					drawStringCentered(font,StringUtils.replaceOnce(I18n.format("energy.overlay.holding"),"$",DragonUtil.formatTwoPlaces.format(data.getEnergyLevel())),x,y-30,220,220,220);
+					drawStringCentered(font,StringUtils.replaceOnce(I18n.format("energy.overlay.regen"),"$",DragonUtil.formatTwoPlaces.format(data.getMaxLevel())),x,y-20,220,220,220);
 					drawStringCentered(font,I18n.format(data.getHealth().translationText),x,y-10,data.getHealth().color);
 				}
 
@@ -147,33 +144,13 @@ public class OverlayManager{
 	
 	@SubscribeEvent
 	public void onRenderBlockOutline(DrawBlockHighlightEvent e){
+		if (e.target.typeOfHit != MovingObjectType.BLOCK)return; // why the fuck is this getting called for entities
+		
 		tmpPos.set(e.target.blockX,e.target.blockY,e.target.blockZ);
 		
 		if (tmpPos.getBlock(e.player.worldObj) == BlockList.energy_cluster){
 			clusterLookedAt = (TileEntityEnergyCluster)tmpPos.getTileEntity(e.player.worldObj);
 			e.setCanceled(true);
-		}
-	}
-	
-	private static class Notification{
-		final String text;
-		byte yy;
-		float alpha;
-		long lastTime;
-
-		Notification(String text){
-			this.text = text;
-		}
-
-		boolean update(){
-			if (lastTime == Minecraft.getMinecraft().theWorld.getTotalWorldTime())return false;
-
-			if (((lastTime = Minecraft.getMinecraft().theWorld.getTotalWorldTime())&3) == 0)++yy;
-
-			if (yy < 6)alpha = Math.min(1F,alpha+0.1F);
-			else if (yy > 10 && (alpha -= 0.1F) <= 0F)return true;
-
-			return false;
 		}
 	}
 }

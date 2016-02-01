@@ -42,6 +42,13 @@ public final class RecipeList{
 			Items.gold_nugget
 		);
 		
+		GameRegistry.addShapedRecipe(new ItemStack(ItemList.energy_oracle),
+			" E ", "OGO",
+			'E', Items.ender_eye,
+			'O', Blocks.obsidian,
+			'G', Items.gold_ingot
+		);
+		
 		GameRegistry.addShapelessRecipe(new ItemStack(ItemList.alteration_nexus),
 			Items.ender_eye,
 			ItemList.ancient_dust,
@@ -82,14 +89,14 @@ public final class RecipeList{
 		// Gloomrock
 		
 		GameRegistryUtil.addSmeltingRecipe(
-			new ItemStack(BlockList.gloomrock,1,BlockGloomrock.Meta.PLAIN.value),
-			new ItemStack(BlockList.gloomrock,1,BlockGloomrock.Meta.SMOOTH.value),
+			new ItemStack(BlockList.gloomrock,1,BlockGloomrock.State.PLAIN.value),
+			new ItemStack(BlockList.gloomrock,1,BlockGloomrock.State.SMOOTH.value),
 			0.05F
 		);
 		
-		GameRegistry.addShapedRecipe(new ItemStack(BlockList.gloomrock,4,BlockGloomrock.Meta.BRICK.value),
+		GameRegistry.addShapedRecipe(new ItemStack(BlockList.gloomrock,4,BlockGloomrock.State.BRICK.value),
 			"GG", "GG",
-			'G', new ItemStack(BlockList.gloomrock,1,BlockGloomrock.Meta.SMOOTH.value)
+			'G', new ItemStack(BlockList.gloomrock,1,BlockGloomrock.State.SMOOTH.value)
 		);
 		
 		Meta.BlockColor[] gloomrockColors = new Meta.BlockColor[]{
@@ -99,34 +106,48 @@ public final class RecipeList{
 		};
 		
 		for(int color = 0; color < gloomrockColors.length; color++){
-			GameRegistry.addShapedRecipe(new ItemStack(BlockList.gloomrock,8,BlockGloomrock.Meta.firstColor+color),
+			GameRegistry.addShapedRecipe(new ItemStack(BlockList.gloomrock,8,BlockGloomrock.State.firstColor+color),
 				"GGG", "GDG", "GGG",
-				'G', new ItemStack(BlockList.gloomrock,1,BlockGloomrock.Meta.SMOOTH.value),
+				'G', new ItemStack(BlockList.gloomrock,1,BlockGloomrock.State.SMOOTH.value),
 				'D', new ItemStack(Items.dye,1,Meta.getDye(gloomrockColors[color]))
 			);
 		}
 		
 		GameRegistry.addShapedRecipe(new ItemStack(BlockList.gloomrock_smooth_slab,6),
 			"GGG",
-			'G', new ItemStack(BlockList.gloomrock,1,BlockGloomrock.Meta.SMOOTH.value)
+			'G', new ItemStack(BlockList.gloomrock,1,BlockGloomrock.State.SMOOTH.value)
 		);
 		
 		GameRegistry.addShapedRecipe(new ItemStack(BlockList.gloomrock_smooth_stairs,4),
 			"  G", " GG", "GGG",
-			'G', new ItemStack(BlockList.gloomrock,1,BlockGloomrock.Meta.SMOOTH.value)
+			'G', new ItemStack(BlockList.gloomrock,1,BlockGloomrock.State.SMOOTH.value)
 		);
 		
 		GameRegistry.addShapedRecipe(new ItemStack(BlockList.gloomrock_brick_slab,6),
 			"GGG",
-			'G', new ItemStack(BlockList.gloomrock,1,BlockGloomrock.Meta.BRICK.value)
+			'G', new ItemStack(BlockList.gloomrock,1,BlockGloomrock.State.BRICK.value)
 		);
 		
 		GameRegistry.addShapedRecipe(new ItemStack(BlockList.gloomrock_brick_stairs,4),
 			"  G", " GG", "GGG",
-			'G', new ItemStack(BlockList.gloomrock,1,BlockGloomrock.Meta.BRICK.value)
+			'G', new ItemStack(BlockList.gloomrock,1,BlockGloomrock.State.BRICK.value)
 		);
 		
-		// Decorations
+		GameRegistry.addShapedRecipe(new ItemStack(BlockList.gloomtorch,8),
+			" D ", "DED", " G ",
+			'D', Items.glowstone_dust,
+			'E', ItemList.ethereum,
+			'G', new ItemStack(BlockList.gloomrock,1,BlockGloomrock.State.SMOOTH.value)
+		);
+		
+		// Opaque Decorations
+		
+		GameRegistry.addShapedRecipe(new ItemStack(BlockList.dark_loam_slab,6),
+			"LLL",
+			'L', BlockList.dark_loam
+		);
+		
+		// Transparent Decorations
 		
 		GameRegistryUtil.addSmeltingRecipe(
 			new ItemStack(Blocks.vine),
@@ -137,6 +158,13 @@ public final class RecipeList{
 		GameRegistry.addShapelessRecipe(
 			new ItemStack(ItemList.ancient_dust),
 			BlockList.ancient_web
+		);
+		
+		GameRegistry.addShapedRecipe(new ItemStack(BlockList.ethereal_lantern,4),
+			"GSG", "SES", "GSG",
+			'G', Items.gold_nugget,
+			'S', new ItemStack(Blocks.stonebrick,1,Meta.stoneBrickChiseled),
+			'E', ItemList.ethereum
 		);
 		
 		/*GameRegistry.addShapedRecipe(new ItemStack(ItemList.altar_nexus),

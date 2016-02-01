@@ -12,6 +12,7 @@ import chylex.hee.entity.technical.EntityTechnicalTrigger.TriggerBase;
 import chylex.hee.packets.PacketPipeline;
 import chylex.hee.packets.client.C21EffectEntity;
 import chylex.hee.system.abstractions.Pos.PosMutable;
+import chylex.hee.system.abstractions.entity.EntitySelector;
 import chylex.hee.world.feature.stronghold.rooms.decorative.StrongholdRoomLargeIntersection;
 import chylex.hee.world.structure.StructureWorld;
 import chylex.hee.world.structure.dungeon.StructureDungeonPieceInst;
@@ -26,7 +27,7 @@ public class StrongholdRoomLargeIntersectionTrap extends StrongholdRoomLargeInte
 	}
 	
 	public static class TriggerSilverfishBlocks extends TriggerBase{
-		private byte checkTimer = 0;
+		private int checkTimer = 0;
 		
 		@Override
 		protected void update(EntityTechnicalTrigger entity, World world, Random rand){
@@ -39,7 +40,7 @@ public class StrongholdRoomLargeIntersectionTrap extends StrongholdRoomLargeInte
 				
 				PosMutable mpos = new PosMutable();
 				
-				List<EntityPlayer> players = world.getEntitiesWithinAABB(EntityPlayer.class,entity.boundingBox.expand(8.5D,4.5D,8.5D).offset(0D,2D,0D));
+				List<EntityPlayer> players = EntitySelector.players(world,entity.boundingBox.expand(8.5D,4.5D,8.5D).offset(0D,2D,0D));
 				if (players.isEmpty())return;
 				
 				for(int attempt = 0, spawnsLeft = 3+rand.nextInt(3)+world.difficultySetting.getDifficultyId(); attempt < 500; attempt++){
@@ -63,5 +64,15 @@ public class StrongholdRoomLargeIntersectionTrap extends StrongholdRoomLargeInte
 				entity.setDead();
 			}
 		}
+	}
+	
+	@Override
+	protected float getWeightFactor(){
+		return 1.75F;
+	}
+	
+	@Override
+	protected float getWeightMultiplier(){
+		return 4F;
 	}
 }

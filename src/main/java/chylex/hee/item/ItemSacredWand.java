@@ -9,7 +9,6 @@ import net.minecraft.entity.ai.attributes.AttributeModifier;
 import net.minecraft.entity.monster.IMob;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.stats.StatList;
 import net.minecraft.util.DamageSource;
 import net.minecraft.util.EntityDamageSourceIndirect;
@@ -17,13 +16,12 @@ import net.minecraft.util.MathHelper;
 import net.minecraft.world.World;
 import chylex.hee.entity.GlobalMobData;
 import chylex.hee.entity.projectile.EntityProjectileSacredWand;
-import chylex.hee.mechanics.enhancements.EnhancementHandler;
-import chylex.hee.mechanics.enhancements.types.SacredWandEnhancements;
 import chylex.hee.mechanics.wand.WandCore;
 import chylex.hee.mechanics.wand.WandType;
+import chylex.hee.system.abstractions.nbt.NBT;
+import chylex.hee.system.abstractions.nbt.NBTCompound;
 import chylex.hee.system.collections.CollectionUtil;
 import chylex.hee.system.util.DragonUtil;
-import chylex.hee.system.util.ItemUtil;
 import chylex.hee.system.util.MathUtil;
 import com.google.common.collect.Multimap;
 import cpw.mods.fml.relauncher.Side;
@@ -31,7 +29,7 @@ import cpw.mods.fml.relauncher.SideOnly;
 
 public class ItemSacredWand extends ItemAbstractEnergyAcceptor{
 	public static boolean attackEntity(ItemStack is, EntityPlayer player, EntityLivingBase entity, EntityProjectileSacredWand projectile){
-		NBTTagCompound nbt = ItemUtil.getTagRoot(is,true);
+		NBTCompound tag = NBT.item(is,true);
 		
 		float damage = WandType.fromItemStack(is).baseDamage;
 		
@@ -44,15 +42,15 @@ public class ItemSacredWand extends ItemAbstractEnergyAcceptor{
 		int knockback = isMelee && player.isSprinting() ? 2 : 0; // double knockback value
 		
 		// critical
-		if (entity.worldObj.getTotalWorldTime()-nbt.getLong("latktm") >= 600){
+		if (entity.worldObj.getTotalWorldTime()-tag.getLong("latktm") >= 600){
 			damage *= 1.2F;
-			nbt.setLong("latktm",entity.worldObj.getTotalWorldTime());
+			tag.setLong("latktm",entity.worldObj.getTotalWorldTime());
 			critical = true;
 		}
 		
 		// enhancements
-		List<Enum> enhancements = EnhancementHandler.getEnhancements(is);
-		boolean hasCapability = enhancements.contains(SacredWandEnhancements.CAPABILITY);
+		// TODO List<Enum> enhancements = EnhancementHandler.getEnhancements(is);
+		boolean hasCapability = false; // TODO enhancements.contains(SacredWandEnhancements.CAPABILITY);
 		
 		if (hasCapability)damage *= 1.1F;
 		
@@ -65,7 +63,7 @@ public class ItemSacredWand extends ItemAbstractEnergyAcceptor{
 			List<EntityLiving> closest = DragonUtil.getClosestEntities(max,entity,entity.worldObj.getEntitiesWithinAABB(EntityLiving.class,entity.boundingBox.expand(4D,4D,4D)));
 			
 			for(EntityLiving e:closest){
-				if (e.getDistanceToEntity(entity) <= (enhancements.contains(SacredWandEnhancements.RANGE) ? 4D : 2.5D))newAttacked.add(e);
+				if (e.getDistanceToEntity(entity) <= (/* TODO enhancements.contains(SacredWandEnhancements.RANGE) ? 4D : */2.5D))newAttacked.add(e);
 			}
 			
 			attacked = newAttacked.toArray(new EntityLivingBase[newAttacked.size()]);
@@ -120,7 +118,7 @@ public class ItemSacredWand extends ItemAbstractEnergyAcceptor{
 	
 	@Override
 	public int getEnergyUsage(ItemStack is){
-		return EnhancementHandler.hasEnhancement(is,SacredWandEnhancements.EFFICIENCY) ? 2 : 3;
+		return /* TODO EnhancementHandler.hasEnhancement(is,SacredWandEnhancements.EFFICIENCY) ? 2 : */3;
 	}
 	
 	@Override

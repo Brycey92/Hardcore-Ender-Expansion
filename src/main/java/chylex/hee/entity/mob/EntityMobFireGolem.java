@@ -1,5 +1,4 @@
 package chylex.hee.entity.mob;
-import java.util.UUID;
 import net.minecraft.enchantment.EnchantmentHelper;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
@@ -21,13 +20,17 @@ import chylex.hee.mechanics.essence.EssenceType;
 import chylex.hee.packets.PacketPipeline;
 import chylex.hee.packets.client.C08PlaySound;
 import chylex.hee.proxy.ModCommonProxy;
-import chylex.hee.system.util.BlockPosM;
+import chylex.hee.system.abstractions.entity.EntityAttributes;
+import chylex.hee.system.abstractions.entity.EntityAttributes.Operation;
+import chylex.hee.system.abstractions.entity.EntityDataWatcher;
 import chylex.hee.system.util.MathUtil;
 
 public class EntityMobFireGolem extends EntityMob{
-	private static final UUID cancelMovementModifierUUID = UUID.fromString("7107DE5E-7CE8-4030-940E-514C1F160890");
-	private static final AttributeModifier cancelMovement = new AttributeModifier(cancelMovementModifierUUID,"Movement cancellation",-1,2).setSaved(false);
+	private enum Data{ FLAME_PARTICLES }
 	
+	private static final AttributeModifier stopMovingModifier = EntityAttributes.createModifier("Cancel movement",Operation.MULTIPLY,0D);
+	
+	private EntityDataWatcher entityData;
 	private byte rangedStatus = -1, teleportCooldown = 0;
 	
 	public EntityMobFireGolem(World world){
@@ -40,15 +43,16 @@ public class EntityMobFireGolem extends EntityMob{
 	@Override
 	protected void entityInit(){
 		super.entityInit();
-		dataWatcher.addObject(16,Byte.valueOf((byte)0));
+		entityData = new EntityDataWatcher(this);
+		entityData.addByte(Data.FLAME_PARTICLES);
 	}
 	
 	@Override
 	protected void applyEntityAttributes(){
 		super.applyEntityAttributes();
-		getEntityAttribute(SharedMonsterAttributes.movementSpeed).setBaseValue(0.55D);
-		getEntityAttribute(SharedMonsterAttributes.maxHealth).setBaseValue(ModCommonProxy.opMobs ? 42D : 24D);
-		getEntityAttribute(SharedMonsterAttributes.attackDamage).setBaseValue(ModCommonProxy.opMobs ? 4D : 2D);
+		EntityAttributes.setValue(this,EntityAttributes.maxHealth,ModCommonProxy.opMobs ? 42D : 24D);
+		EntityAttributes.setValue(this,EntityAttributes.movementSpeed,0.55D);
+		EntityAttributes.setValue(this,EntityAttributes.attackDamage,ModCommonProxy.opMobs ? 4D : 2D);
 	}
 	
 	@Override
@@ -62,7 +66,7 @@ public class EntityMobFireGolem extends EntityMob{
 		super.onLivingUpdate();
 
 		if (worldObj.isRemote){
-			byte flameParticleAmount = dataWatcher.getWatchableObjectByte(16);
+			byte flameParticleAmount = entityData.getByte(Data.FLAME_PARTICLES);
 			
 			if (flameParticleAmount > 0){
 				rotationYaw = renderYawOffset = rotationYawHead;
@@ -74,7 +78,7 @@ public class EntityMobFireGolem extends EntityMob{
 			}
 		}
 		else{
-			getEntityAttribute(SharedMonsterAttributes.movementSpeed).removeModifier(cancelMovement);
+			EntityAttributes.removeModifier(this,EntityAttributes.movementSpeed,stopMovingModifier);
 			
 			if (teleportCooldown > 0)--teleportCooldown;
 			
@@ -85,7 +89,7 @@ public class EntityMobFireGolem extends EntityMob{
 					rangedStatus = 0;
 				}
 				else if (rangedStatus >= 0){
-					getEntityAttribute(SharedMonsterAttributes.movementSpeed).applyModifier(cancelMovement);
+					EntityAttributes.applyModifier(this,EntityAttributes.movementSpeed,stopMovingModifier);
 					rotationYaw = rotationYawHead;
 					
 					byte flameParticleAmountNew = (byte)(MathUtil.floor(70-rangedStatus)>>2);
@@ -103,7 +107,7 @@ public class EntityMobFireGolem extends EntityMob{
 						PacketPipeline.sendToAllAround(this,64D,new C08PlaySound(C08PlaySound.SPAWN_FIREBALL,posX,posY,posZ,1.5F,0.85F+rand.nextFloat()*0.1F));
 					}
 					
-					if (dataWatcher.getWatchableObjectByte(16) != flameParticleAmountNew)dataWatcher.updateObject(16,Byte.valueOf(flameParticleAmountNew));
+					if (entityData.getByte(Data.FLAME_PARTICLES) != flameParticleAmountNew)entityData.setByte(Data.FLAME_PARTICLES,flameParticleAmountNew);
 				}
 			}
 		}
@@ -111,7 +115,7 @@ public class EntityMobFireGolem extends EntityMob{
 	
 	@Override
 	public boolean attackEntityAsMob(Entity entity){
-		if (entity.attackEntityFrom(DamageSource.causeMobDamage(this),(float)getEntityAttribute(SharedMonsterAttributes.attackDamage).getAttributeValue())){
+		if (entity.attackEntityFrom(DamageSource.causeMobDamage(this),(float)getEntityAttribute(SharedMonsterAttributes.attackDamage).getAttributeValue())){ // TODO
 			if (rand.nextInt(5) <= 1)entity.setFire(rand.nextInt(4)+2);
 
 			if (entity instanceof EntityLivingBase){
@@ -129,8 +133,8 @@ public class EntityMobFireGolem extends EntityMob{
 			teleportCooldown = 45;
 
 			Vec3 look = getLookVec();
-			double xx, yy, zz;
-			BlockPosM tmpPos = BlockPosM.tmp();
+			double xx, yy, zz; // TODO convert to MobTeleporter
+			/*BlockPosM tmpPos = BlockPosM.tmp();
 			
 			for(int attempt = 0; attempt < 300; attempt++){
 				xx = posX+look.xCoord*3F+rand.nextDouble()*18D-9D;
@@ -147,7 +151,7 @@ public class EntityMobFireGolem extends EntityMob{
 					playSound("mob.endermen.portal",1F,1.1F);
 					return false;
 				}
-			}
+			}*/
 		}
 		
 		if (super.attackEntityFrom(source,amount)){

@@ -1,4 +1,5 @@
 package chylex.hee.packets.client;
+import io.netty.buffer.ByteBuf;
 import java.util.Map;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.audio.ISound;
@@ -14,7 +15,6 @@ import chylex.hee.sound.CustomMusicTicker;
 import chylex.hee.system.abstractions.Pos;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
-import io.netty.buffer.ByteBuf;
 
 public class C02PlayRecord extends AbstractClientPacket{
 	private Pos pos;
@@ -42,11 +42,10 @@ public class C02PlayRecord extends AbstractClientPacket{
 	@SideOnly(Side.CLIENT)
 	protected void handle(EntityClientPlayerMP player){
 		if (!CustomMusicTicker.canPlayMusic()){
-			Minecraft.getMinecraft().thePlayer.addChatMessage(new ChatComponentTranslation("notification.music"));
+			Minecraft.getMinecraft().thePlayer.addChatMessage(new ChatComponentTranslation("music.notEnabledMessage"));
 			return;
 		}
 		
-		String[] recordData = ItemMusicDisk.getRecordData(diskDamage);
 		Minecraft mc = Minecraft.getMinecraft();
 
 		SoundHandler soundHandler = mc.getSoundHandler();
@@ -59,11 +58,12 @@ public class C02PlayRecord extends AbstractClientPacket{
 			mapSoundPositions.remove(coords);
 		}
 
-		mc.ingameGUI.setRecordPlayingMessage("qwertygiy - "+recordData[0]);
-		ResourceLocation resource = new ResourceLocation("hardcoreenderexpansion:"+recordData[1]);
-		PositionedSoundRecord snd = PositionedSoundRecord.func_147675_a(resource,pos.getX(),pos.getY(),pos.getZ());
-		mapSoundPositions.put(coords,snd);
+		mc.ingameGUI.setRecordPlayingMessage(ItemMusicDisk.getRecordTitle(diskDamage));
 		
+		ResourceLocation resource = ItemMusicDisk.getRecordResource(diskDamage);
+		PositionedSoundRecord snd = PositionedSoundRecord.func_147675_a(resource,pos.getX(),pos.getY(),pos.getZ());
+		
+		mapSoundPositions.put(coords,snd);
 		CustomMusicTicker.stopMusicAndPlayJukebox(snd);
 	}
 }

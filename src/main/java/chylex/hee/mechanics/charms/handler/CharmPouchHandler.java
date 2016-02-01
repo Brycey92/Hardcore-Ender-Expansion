@@ -4,11 +4,10 @@ import java.util.Map;
 import java.util.UUID;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
-import net.minecraftforge.common.MinecraftForge;
 import chylex.hee.init.ItemList;
 import chylex.hee.mechanics.charms.CharmPouchInfo;
-import chylex.hee.system.util.ItemUtil;
-import cpw.mods.fml.common.FMLCommonHandler;
+import chylex.hee.system.abstractions.nbt.NBT;
+import chylex.hee.system.util.GameRegistryUtil;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.PlayerEvent.PlayerLoggedInEvent;
 import cpw.mods.fml.common.gameevent.PlayerEvent.PlayerLoggedOutEvent;
@@ -16,10 +15,10 @@ import cpw.mods.fml.common.gameevent.TickEvent.Phase;
 import cpw.mods.fml.common.gameevent.TickEvent.ServerTickEvent;
 
 public final class CharmPouchHandler{
-	private static CharmPouchHandler instance;
+	private static final CharmPouchHandler instance = new CharmPouchHandler();
 	
 	public static void register(){
-		FMLCommonHandler.instance().bus().register(instance = new CharmPouchHandler());
+		GameRegistryUtil.registerEventHandler(instance);
 	}
 	
 	public static void setActivePouch(EntityPlayer player, ItemStack is){
@@ -45,16 +44,12 @@ public final class CharmPouchHandler{
 		
 		if (!isHandlerActive && !activePouchIDs.isEmpty()){
 			isHandlerActive = true;
-			
-			MinecraftForge.EVENT_BUS.register(events);
-			FMLCommonHandler.instance().bus().register(events);
+			GameRegistryUtil.registerEventHandler(events);
 		}
 		else if (isHandlerActive && activePouchIDs.isEmpty()){
 			isHandlerActive = false;
-
 			events.onDisabled();
-			MinecraftForge.EVENT_BUS.unregister(events);
-			FMLCommonHandler.instance().bus().unregister(events);
+			GameRegistryUtil.unregisterEventHandler(events);
 		}
 		
 		refresh = false;
@@ -65,7 +60,7 @@ public final class CharmPouchHandler{
 		ItemStack[] mainInv = e.player.inventory.mainInventory;
 		
 		for(int a = 0; a < mainInv.length; a++){
-			if (mainInv[a] != null && mainInv[a].getItem() == ItemList.charm_pouch && ItemUtil.getTagRoot(mainInv[a],false).getBoolean("isPouchActive")){
+			if (mainInv[a] != null && mainInv[a].getItem() == ItemList.charm_pouch && NBT.item(mainInv[a],false).getBool("isPouchActive")){
 				setActivePouch(e.player,mainInv[a]);
 				break;
 			}

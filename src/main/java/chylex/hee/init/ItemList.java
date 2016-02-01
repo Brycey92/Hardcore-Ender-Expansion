@@ -3,17 +3,17 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
+import net.minecraft.init.Blocks;
+import net.minecraft.init.Items;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemBucket;
 import net.minecraft.item.ItemStack;
-import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fluids.FluidContainerRegistry;
 import net.minecraftforge.oredict.OreDictionary;
 import chylex.hee.block.BlockEnderGoo;
 import chylex.hee.game.creativetab.ModCreativeTab;
 import chylex.hee.item.*;
 import chylex.hee.item.block.ItemBlockEnhancedBrewingStand;
-import chylex.hee.system.logging.Log;
 import chylex.hee.system.util.GameRegistryUtil;
 import cpw.mods.fml.common.IFuelHandler;
 import cpw.mods.fml.common.registry.GameRegistry;
@@ -64,10 +64,13 @@ public final class ItemList{
 	
 	// FUNCTIONAL ITEMS
 	
+	public static Item energy_oracle;
+	public static Item energy_receptacle;
+	public static Item spatial_dash_gem;
+	public static Item amulet_of_recovery;
 	public static Item enhanced_brewing_stand;
 	public static Item enhanced_ender_pearl;
 	public static Item potion_of_instability;
-	public static Item spatial_dash_gem;
 	public static Item transference_gem;
 	public static Item infestation_remedy;
 	public static Item ghost_amulet;
@@ -77,13 +80,12 @@ public final class ItemList{
 	public static Item charm_pouch;
 	public static Item charm;
 	public static Item scorching_pickaxe;
-	public static Item energy_wand;
 	// TODO SANCTUARY public static Item sacred_wand;
 	
 	// WORLD
 
 	public static Item knowledge_note;
-	public static Item enderman_head;
+	public static Item portal_token;
 	public static Item bucket_ender_goo;
 	public static Item music_disk;
 	
@@ -122,11 +124,14 @@ public final class ItemList{
 		register("energy_wand_core", energy_wand_core = new Item().setUnlocalizedName("energyWandCore").setTextureName("hardcoreenderexpansion:energy_wand_core"));
 		// TODO SANCTUARY register("sacred_wand_cores", sacred_wand_cores = new ItemSacredWandCores().setUnlocalizedName("sacredWandCores"));
 		
+		register("energy_oracle", energy_oracle = new ItemEnergyOracle().setMaxStackSize(1).setUnlocalizedName("energyOracle").setTextureName("hardcoreenderexpansion:energy_oracle"));
+		register("energy_receptacle", energy_receptacle = new ItemEnergyReceptacle().setMaxStackSize(1).setUnlocalizedName("energyReceptacle").setTextureName("hardcoreenderexpansion:energy_receptacle"));
+		register("spatial_dash_gem", spatial_dash_gem = new ItemSpatialDashGem().setMaxStackSize(1).setNoRepair().setUnlocalizedName("spatialDashGem").setTextureName("hardcoreenderexpansion:spatial_dash_gem"));
+		register("amulet_of_recovery", amulet_of_recovery = new ItemAmuletOfRecovery().setMaxStackSize(1).setNoRepair().setUnlocalizedName("amuletOfRecovery").setTextureName("hardcoreenderexpansion:amulet_of_recovery"));
 		register("enhanced_brewing_stand", enhanced_brewing_stand = new ItemBlockEnhancedBrewingStand().setUnlocalizedName("enhancedBrewingStand").setTextureName("hardcoreenderexpansion:enhanced_brewing_stand"));
 		register("enhanced_ender_pearl", enhanced_ender_pearl = new ItemEnhancedEnderPearl().setCreativeTab(null).setUnlocalizedName("enderPearl").setTextureName("ender_pearl"));
 		register("potion_of_instability", potion_of_instability = new ItemPotionOfInstability().setUnlocalizedName("potionOfInstability").setTextureName("hardcoreenderexpansion:potion_of_instability"));
-		register("spatial_dash_gem", spatial_dash_gem = new ItemSpatialDashGem().setMaxStackSize(1).setMaxDamage(300).setNoRepair().setUnlocalizedName("spatialDashGem").setTextureName("hardcoreenderexpansion:spatial_dash_gem"));
-		register("transference_gem", transference_gem = new ItemTransferenceGem().setMaxStackSize(1).setMaxDamage(204).setNoRepair().setUnlocalizedName("transferenceGem").setTextureName("hardcoreenderexpansion:transference_gem"));
+		register("transference_gem", transference_gem = new ItemTransferenceGem().setMaxStackSize(1).setNoRepair().setUnlocalizedName("transferenceGem").setTextureName("hardcoreenderexpansion:transference_gem"));
 		register("infestation_remedy", infestation_remedy = new ItemInfestationRemedy().setMaxStackSize(1).setUnlocalizedName("infestationRemedy").setTextureName("hardcoreenderexpansion:infestation_remedy"));
 		register("ghost_amulet", ghost_amulet = new ItemGhostAmulet().setMaxStackSize(1).setUnlocalizedName("ghostAmulet").setTextureName("hardcoreenderexpansion:ghost_amulet"));
 		register("curse", curse = new ItemCurse().setMaxStackSize(32).setUnlocalizedName("curse").setTextureName("hardcoreenderexpansion:curse"));
@@ -135,19 +140,17 @@ public final class ItemList{
 		register("charm_pouch", charm_pouch = new ItemCharmPouch().setMaxStackSize(1).setUnlocalizedName("charmPouch").setTextureName("hardcoreenderexpansion:charm_pouch"));
 		register("charm", charm = new ItemCharm().setMaxStackSize(1).setUnlocalizedName("charm").setTextureName("hardcoreenderexpansion:charm"));
 		register("schorching_pickaxe", scorching_pickaxe = new ItemScorchingPickaxe().setMaxStackSize(1).setMaxDamage(399).setUnlocalizedName("scorchingPickaxe").setTextureName("hardcoreenderexpansion:scorching_pickaxe"));
-		register("energy_wand", energy_wand = new ItemEnergyWand().setMaxStackSize(1).setUnlocalizedName("energyWand").setTextureName("hardcoreenderexpansion:energy_wand"));
 		// TODO SANCTUARY register("sacred_wand", sacred_wand = new ItemSacredWand().setMaxStackSize(1).setMaxDamage(860).setNoRepair().setUnlocalizedName("sacredWand").setTextureName("hardcoreenderexpansion:sacred_wand"));
 		
 		register("knowledge_note", knowledge_note = new ItemKnowledgeNote().setMaxStackSize(1).setUnlocalizedName("knowledgeNote").setTextureName("hardcoreenderexpansion:knowledge_fragment"));
-		register("enderman_head", enderman_head = new ItemEndermanHead().setUnlocalizedName("endermanHead").setTextureName("hardcoreenderexpansion:enderman_head"));
-		register("bucket_ender_goo", bucket_ender_goo = new ItemBucket(BlockList.ender_goo).setUnlocalizedName("bucketEnderGoo").setTextureName("hardcoreenderexpansion:bucket_ender_goo"));
+		register("portal_token", portal_token = new ItemPortalToken().setMaxStackSize(1).setUnlocalizedName("portalToken").setTextureName("hardcoreenderexpansion:portal_token"));
+		register("bucket_ender_goo", bucket_ender_goo = new ItemBucket(BlockList.ender_goo).setContainerItem(Items.bucket).setUnlocalizedName("bucketEnderGoo").setTextureName("hardcoreenderexpansion:bucket_ender_goo"));
 		register("music_disk", music_disk = new ItemMusicDisk().setUnlocalizedName("record").setTextureName("hardcoreenderexpansion:music_disk"));
 		
 		register("exp_bottle_consistent", exp_bottle = new ItemExpBottleConsistent().setUnlocalizedName("expBottle").setTextureName("experience_bottle"));
 		register("spawn_eggs", spawn_eggs = new ItemSpawnEggs().setUnlocalizedName("monsterPlacer").setTextureName("spawn_egg"));
 		register("item_special_effects", special_effects = new ItemSpecialEffects().setUnlocalizedName("itemNumber"));
-		
-		if (Log.isDebugEnabled())register("debug_stick", debug_stick = new ItemDebugStick().setTextureName("minecraft:stick"));
+		register("debug_stick", debug_stick = new ItemDebugStick().setTextureName("stick"));
 	}
 	
 	public static void registerItems(){
@@ -155,19 +158,21 @@ public final class ItemList{
 			GameRegistryUtil.registerItem(entry.getValue(),entry.getKey());
 		}
 		
-		ModCreativeTab.tabMain.list.addItems(
-			ethereum,ancient_dust,alteration_nexus,essence,enhanced_brewing_stand,
+		ModCreativeTab.tabMain.list.add(
+			ethereum,ancient_dust,alteration_nexus,energy_oracle,energy_receptacle,amulet_of_recovery,spatial_dash_gem,
+			essence,enhanced_brewing_stand,
 			end_powder,endium_ingot,stardust,igneous_rock,instability_orb,potion_of_instability,
-			blank_gem,spatial_dash_gem,transference_gem,
+			blank_gem,transference_gem,
 			silverfish_blood,dry_splinter,infestation_remedy,charm_pouch,rune,
 			ghost_amulet,ectoplasm,spectral_tear,living_matter,curse,potion_of_purity,curse_amulet,
-			infernium,scorching_pickaxe,arcane_shard,obsidian_fragment,obsidian_rod,auricion,energy_wand_core,energy_wand,
-			enderman_head,bucket_ender_goo,knowledge_note,
+			infernium,scorching_pickaxe,arcane_shard,obsidian_fragment,obsidian_rod,auricion,energy_wand_core,
+			BlockList.enderman_head,bucket_ender_goo,knowledge_note,
 			// TODO SANCTUARY sacred_wand,sacred_wand_cores,
-			music_disk,exp_bottle,spawn_eggs
+			exp_bottle,music_disk,portal_token,spawn_eggs,
+			Blocks.end_portal,BlockList.void_portal
 		);
 		
-		ModCreativeTab.tabCharms.list.addItems(
+		ModCreativeTab.tabCharms.list.add(
 			charm
 		);
 	}
@@ -175,8 +180,10 @@ public final class ItemList{
 	public static void configureItems(){
 		OreDictionary.registerOre("ingotHeeEndium", ItemList.endium_ingot);
 		
-		MinecraftForge.EVENT_BUS.register(ItemList.enderman_head);
-		MinecraftForge.EVENT_BUS.register(ItemList.scorching_pickaxe);
+		GameRegistryUtil.registerEventHandler(Item.getItemFromBlock(BlockList.enderman_head));
+		GameRegistryUtil.registerEventHandler(ItemList.amulet_of_recovery);
+		GameRegistryUtil.registerEventHandler(ItemList.amulet_of_recovery);
+		GameRegistryUtil.registerEventHandler(ItemList.scorching_pickaxe);
 		GameRegistry.registerFuelHandler((IFuelHandler)ItemList.igneous_rock);
 		
 		FluidContainerRegistry.registerFluidContainer(BlockEnderGoo.fluid, new ItemStack(ItemList.bucket_ender_goo), FluidContainerRegistry.EMPTY_BUCKET);

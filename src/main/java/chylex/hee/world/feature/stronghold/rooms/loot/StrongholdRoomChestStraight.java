@@ -3,6 +3,7 @@ import java.util.Random;
 import net.minecraft.init.Blocks;
 import chylex.hee.init.BlockList;
 import chylex.hee.system.abstractions.Meta;
+import chylex.hee.system.abstractions.Pos.PosMutable;
 import chylex.hee.system.abstractions.facing.Facing4;
 import chylex.hee.world.feature.stronghold.rooms.StrongholdRoom;
 import chylex.hee.world.structure.StructureWorld;
@@ -40,33 +41,39 @@ public class StrongholdRoomChestStraight extends StrongholdRoom{
 			}
 		}
 		
+		for(Connection connection:connections){
+			PosMutable mpos = new PosMutable(x+connection.offsetX,0,z+connection.offsetZ).move(connection.facing.opposite());
+			Facing4 perpendicular = connection.facing.perpendicular();
+			placeLine(world,rand,placeAir,mpos.x-perpendicular.getX(),y+1,mpos.z-perpendicular.getZ(),mpos.x+perpendicular.getX(),y+1,mpos.z+perpendicular.getZ());
+		}
+		
 		// floor separation
 		placeCube(world,rand,IBlockPicker.basic(Blocks.stone_slab,Meta.slabStoneBrickTop),x+2,y+4,z+2,x+maxX-2,y+4,z+maxZ-2);
 		
 		// ladders
-		Facing4 ladderFacing = dirX ? Facing4.NORTH_NEGZ : Facing4.WEST_NEGX;
+		Facing4 vineFacing = dirX ? Facing4.NORTH_NEGZ : Facing4.WEST_NEGX;
 		
-		for(int ladderSide = 0; ladderSide < 2; ladderSide++){
-			for(int ladderY = 0; ladderY < 4; ladderY++){
-				placeBlock(world,rand,placeStoneBrick,centerX+4*ladderFacing.getX(),y+1+ladderY,centerZ+4*ladderFacing.getZ());
-				placeBlock(world,rand,IBlockPicker.basic(Blocks.ladder,Meta.getLadder(ladderFacing)),centerX+3*ladderFacing.getX(),y+1+ladderY,centerZ+3*ladderFacing.getZ());
+		for(int vineSide = 0; vineSide < 2; vineSide++){
+			for(int vineY = 0; vineY < 4; vineY++){
+				placeBlock(world,rand,placeStoneBrick,centerX+4*vineFacing.getX(),y+1+vineY,centerZ+4*vineFacing.getZ());
+				placeBlock(world,rand,IBlockPicker.basic(BlockList.dry_vine,Meta.getVine(vineFacing)),centerX+3*vineFacing.getX(),y+1+vineY,centerZ+3*vineFacing.getZ());
 			}
 			
-			if (ladderSide == 0)ladderFacing = ladderFacing.opposite();
+			if (vineSide == 0)vineFacing = vineFacing.opposite();
 		}
 		
 		// top floor chest
 		placeOutline(world,rand,IBlockPicker.basic(Blocks.stone_slab,Meta.slabStoneSmoothBottom),centerX-2,y+5,centerZ-2,centerX+2,y+5,centerZ+2,1);
 		placeCube(world,rand,placeStoneBrick,centerX-1,y+5,centerZ-1,centerX+1,y+5,centerZ+1);
 		
-		placeBlock(world,rand,IBlockPicker.basic(Blocks.chest),centerX,y+6,centerZ);
-		world.setTileEntity(centerX,y+6,centerZ,Meta.generateChest(rand.nextBoolean() ? ladderFacing : ladderFacing.opposite(),generateLoot));
+		placeBlock(world,rand,placeChest,centerX,y+6,centerZ);
+		world.setTileEntity(centerX,y+6,centerZ,Meta.generateChest(rand.nextBoolean() ? vineFacing : vineFacing.opposite(),generateLootGeneral));
 		
 		// top floor lights
 		for(int cornerX = 0; cornerX < 2; cornerX++){
 			for(int cornerZ = 0; cornerZ < 2; cornerZ++){
-				placeBlock(world,rand,IBlockPicker.basic(BlockList.stone_brick_wall),x+2+6*cornerX,y+maxY-1,z+2+6*cornerZ);
-				placeBlock(world,rand,IBlockPicker.basic(Blocks.glowstone),x+2+6*cornerX,y+maxY-2,z+2+6*cornerZ); // TODO new light block
+				placeBlock(world,rand,placeStoneBrickWall,x+2+6*cornerX,y+maxY-1,z+2+6*cornerZ);
+				placeBlock(world,rand,placeEtherealLantern,x+2+6*cornerX,y+maxY-2,z+2+6*cornerZ);
 			}
 		}
 	}

@@ -3,20 +3,18 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.UUID;
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.nbt.NBTBase;
-import net.minecraft.nbt.NBTTagCompound;
 import chylex.hee.entity.boss.EntityBossDragon;
 import chylex.hee.game.achievements.AchievementEvents;
 import chylex.hee.game.achievements.AchievementManager;
+import chylex.hee.system.abstractions.nbt.NBTCompound;
 
 public class DragonAchievementManager{
 	private final EntityBossDragon dragon;
 	private final Map<UUID,AchievementData> playerData;
 	private int battleTimer;
-	private byte playerCheck;
+	private int playerCheck;
 	
 	public DragonAchievementManager(EntityBossDragon dragon){
 		this.dragon = dragon;
@@ -46,7 +44,7 @@ public class DragonAchievementManager{
 		++getData(player.getUniqueID()).deathAmount;
 	}
 	
-	public void onPlayerKilledEnderman(EntityPlayer player){
+	public void onPlayerKilledEnderman(EntityPlayer player){ // TODO reimplement
 		getData(player.getUniqueID()).killedEnderman = true;
 	}
 	
@@ -74,43 +72,35 @@ public class DragonAchievementManager{
 		}
 	}
 	
-	public NBTTagCompound writeToNBT(){
-		NBTTagCompound tag = new NBTTagCompound();
-		for(Entry<UUID,AchievementData> entry:playerData.entrySet())tag.setTag(entry.getKey().toString(),entry.getValue().writeToNBT());
-		tag.setInteger("___timer",battleTimer);
+	public NBTCompound writeToNBT(){
+		NBTCompound tag = new NBTCompound();
+		for(Entry<UUID,AchievementData> entry:playerData.entrySet())tag.setCompound(entry.getKey().toString(),entry.getValue().writeToNBT());
+		tag.setInt("___timer",battleTimer);
 		return tag;
 	}
 
-	public void readFromNBT(NBTTagCompound tag){
-		for(String key:(Set<String>)tag.func_150296_c()){ // OBFUSCATED get keys
-			NBTBase b = tag.getTag(key);
-			
-			if (b instanceof NBTTagCompound){
-				NBTTagCompound compound = (NBTTagCompound)b;
-				getData(UUID.fromString(key)).readFromNBT(compound);
-			}
-		}
-		
-		battleTimer = tag.getInteger("___timer");
+	public void readFromNBT(NBTCompound tag){
+		tag.forEachCompound((key, value) -> getData(UUID.fromString(key)).readFromNBT(value));
+		battleTimer = tag.getInt("___timer");
 	}
 	
-	class AchievementData{
+	static final class AchievementData{
 		private short participationCounter;
 		private short deathAmount;
 		private boolean killedEnderman;
 		
-		private final NBTTagCompound writeToNBT(){
-			NBTTagCompound tag = new NBTTagCompound();
+		private final NBTCompound writeToNBT(){
+			NBTCompound tag = new NBTCompound();
 			tag.setShort("participationCnt",participationCounter);
 			tag.setShort("deathAmount",deathAmount);
-			tag.setBoolean("killedEnderman",killedEnderman);
+			tag.setBool("killedEnderman",killedEnderman);
 			return tag;
 		}
 	
-		private final void readFromNBT(NBTTagCompound tag){
+		private final void readFromNBT(NBTCompound tag){
 			participationCounter = tag.getShort("participationCnt");
 			deathAmount = tag.getShort("deathAmount");
-			killedEnderman = tag.getBoolean("killedEnderman");
+			killedEnderman = tag.getBool("killedEnderman");
 		}
 	}
 }

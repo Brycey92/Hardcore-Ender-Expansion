@@ -11,7 +11,7 @@ public final class MessageRegistry{
 	private static Map<String,MessagePattern> registry;
 	private static Map<String,RunEvent> events;
 	
-	public static MessagePattern register(String key, MessageHandler handler, RunEvent event){
+	public static MessagePattern register(String key, IMessageHandler handler, RunEvent event){
 		MessagePattern pattern = new MessagePattern(handler);
 		if (registry.put(key,pattern) != null)throw new IllegalArgumentException("Cannot register duplicate IMC message key: "+key);
 		events.put(key,event);
@@ -30,7 +30,7 @@ public final class MessageRegistry{
 	}
 	
 	public static boolean canRunInEvent(String key, RunEvent event){
-		return events.get(key) == event || event == null;
+		return events.get(key) == event;
 	}
 	
 	static{

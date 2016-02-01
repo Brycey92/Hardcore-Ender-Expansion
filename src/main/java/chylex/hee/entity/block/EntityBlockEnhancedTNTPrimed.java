@@ -1,6 +1,4 @@
 package chylex.hee.entity.block;
-import java.util.ArrayList;
-import java.util.List;
 import net.minecraft.block.Block;
 import net.minecraft.block.material.Material;
 import net.minecraft.entity.EntityLivingBase;
@@ -8,7 +6,7 @@ import net.minecraft.entity.item.EntityTNTPrimed;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.world.World;
 import chylex.hee.HardcoreEnderExpansion;
-import chylex.hee.mechanics.enhancements.EnhancementEnumHelper;
+import chylex.hee.mechanics.enhancements.EnhancementList;
 import chylex.hee.mechanics.enhancements.types.TNTEnhancements;
 import chylex.hee.system.abstractions.Explosion;
 import chylex.hee.system.abstractions.Pos;
@@ -17,7 +15,7 @@ import cpw.mods.fml.relauncher.SideOnly;
 
 // TODO add a global madness indicator that will control how many packets, particles, and such are going to be handled to reduce lag
 public class EntityBlockEnhancedTNTPrimed extends EntityTNTPrimed{
-	private List<Enum> tntEnhancements = new ArrayList<>();
+	private final EnhancementList<TNTEnhancements> enhancements;
 	private boolean wentIntoWall = false;
 	
 	public EntityBlockEnhancedTNTPrimed(World world){
@@ -29,18 +27,20 @@ public class EntityBlockEnhancedTNTPrimed extends EntityTNTPrimed{
 			int count = world.loadedEntityList.size();
 			if (count > 500)setDead();
 		}
+		
+		this.enhancements = new EnhancementList<>(TNTEnhancements.class);
 	}
 
-	public EntityBlockEnhancedTNTPrimed(World world, double x, double y, double z, EntityLivingBase igniter, List<Enum> enhancements){
+	public EntityBlockEnhancedTNTPrimed(World world, double x, double y, double z, EntityLivingBase igniter, EnhancementList<TNTEnhancements> enhancements){
 		super(world,x,y,z,igniter);
-		this.tntEnhancements.addAll(enhancements);
+		this.enhancements = enhancements;
 		
-		if (tntEnhancements.contains(TNTEnhancements.NOCLIP)){
+		/* TODO if (tntEnhancements.contains(TNTEnhancements.NOCLIP)){
 			noClip = true;
 			fuse = 40;
 		}
 		
-		if (tntEnhancements.contains(TNTEnhancements.NO_FUSE))fuse = 1;
+		if (tntEnhancements.contains(TNTEnhancements.NO_FUSE))fuse = 1;*/
 	}
 
 	@Override
@@ -75,7 +75,10 @@ public class EntityBlockEnhancedTNTPrimed extends EntityTNTPrimed{
 		
 		if (--fuse <= 0 && !worldObj.isRemote){
 			setDead();
-			Explosion explosion = new Explosion(worldObj,posX,posY,posZ,4F,this);
+			Explosion explosion = new Explosion(worldObj,posX,posY,posZ,enhancements.has(TNTEnhancements.EXTRA_POWER) ? 5.2F : 4F,this);
+			explosion.damageBlocks = !enhancements.has(TNTEnhancements.NO_BLOCK_DAMAGE);
+			explosion.damageEntities = !enhancements.has(TNTEnhancements.NO_ENTITY_DAMAGE);
+			explosion.spawnFire = enhancements.has(TNTEnhancements.FIRE);
 			explosion.trigger();
 		}
 		else{
@@ -85,16 +88,6 @@ public class EntityBlockEnhancedTNTPrimed extends EntityTNTPrimed{
 		}
 		
 		setPosition(posX,posY,posZ);
-	}
-
-	private void explode(){
-		/*EnhancedTNTExplosion explosion = new EnhancedTNTExplosion(worldObj,this,posX,posY,posZ,tntEnhancements.contains(TNTEnhancements.EXTRA_POWER) ? 5.2F : 4F);
-		explosion.isFlaming = tntEnhancements.contains(TNTEnhancements.FIRE);
-		explosion.isSmoking = !tntEnhancements.contains(TNTEnhancements.NO_BLOCK_DAMAGE);
-		explosion.damageEntities = !tntEnhancements.contains(TNTEnhancements.NO_ENTITY_DAMAGE);
-		explosion.doExplosionA();
-		explosion.doExplosionB(true);
-		explosion.doExplosionB(true);*/
 	}
 	
 	@Override
@@ -108,14 +101,14 @@ public class EntityBlockEnhancedTNTPrimed extends EntityTNTPrimed{
 	@Override
 	public void writeEntityToNBT(NBTTagCompound nbt){
 		super.writeEntityToNBT(nbt);
-		nbt.setString("enhancements",EnhancementEnumHelper.serialize(tntEnhancements));
+		nbt.setString("enhancements2",enhancements.serialize());
 		nbt.setBoolean("wentIntoWall",wentIntoWall);
 	}
 
 	@Override
 	public void readEntityFromNBT(NBTTagCompound nbt){
 		super.readEntityFromNBT(nbt);
-		tntEnhancements = EnhancementEnumHelper.deserialize(nbt.getString("enhancements"),TNTEnhancements.class);
+		enhancements.deserialize(nbt.getString("enhancements2"));
 		wentIntoWall = nbt.getBoolean("wentIntoWall");
 	}
 }

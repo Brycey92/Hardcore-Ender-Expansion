@@ -1,32 +1,39 @@
 package chylex.hee.world.structure;
+import gnu.trove.map.hash.TIntObjectHashMap;
+import gnu.trove.set.hash.TIntHashSet;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
-import com.google.common.base.Objects;
+import javax.annotation.Nullable;
 import net.minecraft.block.Block;
 import net.minecraft.entity.Entity;
 import net.minecraft.init.Blocks;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.world.World;
+import org.apache.commons.lang3.tuple.Pair;
 import chylex.hee.system.abstractions.BlockInfo;
+import chylex.hee.system.abstractions.Pos;
 import chylex.hee.system.abstractions.Pos.PosMutable;
 import chylex.hee.system.logging.Log;
 import chylex.hee.system.util.MathUtil;
 import chylex.hee.world.structure.util.IStructureTileEntity;
-import gnu.trove.map.hash.TIntObjectHashMap;
-import gnu.trove.set.hash.TIntHashSet;
+import chylex.hee.world.util.BoundingBox;
+import com.google.common.base.Objects;
 
-public final class StructureWorld{
-	private final int radX, radZ, sizeX, sizeY, sizeZ;
-	private final Block[] blocks;
-	private final byte[] metadata;
-	private final TIntHashSet scheduledUpdates = new TIntHashSet(32);
-	private final TIntObjectHashMap<BlockInfo> attentionWhores = new TIntObjectHashMap<>(16);
-	private final TIntObjectHashMap<IStructureTileEntity> tileEntityMap = new TIntObjectHashMap<>(32);
-	private final List<Entity> entityList = new ArrayList<>(8);
+public class StructureWorld{
+	protected final World world;
+	protected final int radX, radZ, sizeX, sizeY, sizeZ;
+	protected final Block[] blocks;
+	protected final byte[] metadata;
+	protected final TIntHashSet scheduledUpdates = new TIntHashSet(32);
+	protected final TIntObjectHashMap<BlockInfo> attentionWhores = new TIntObjectHashMap<>(16);
+	protected final TIntObjectHashMap<IStructureTileEntity> tileEntityMap = new TIntObjectHashMap<>(32);
+	protected final List<Pair<Entity,Consumer<Entity>>> entityList = new ArrayList<>(8);
 	
-	public StructureWorld(int radX, int sizeY, int radZ){
+	public StructureWorld(World world, int radX, int sizeY, int radZ){
+		this.world = world;
 		this.radX = radX;
 		this.radZ = radZ;
 		this.sizeX = radX*2+1;
@@ -36,17 +43,31 @@ public final class StructureWorld{
 		this.metadata = new byte[sizeX*sizeY*sizeZ];
 	}
 	
-	public boolean isInside(int x, int y, int z){
+	public StructureWorld(int radX, int sizeY, int radZ){
+		this(null,radX,sizeY,radZ);
+	}
+	
+	public final World getParentWorld(){
+		return world;
+	}
+	
+	public final BoundingBox getArea(){
+		return new BoundingBox(Pos.at(-radX,0,-radZ),Pos.at(radX,sizeY,radZ));
+	}
+	
+	public final boolean isInside(int x, int y, int z){
 		x += radX;
 		z += radZ;
 		return x >= 0 && x < sizeX && y >= 0 && y < sizeY && z >= 0 && z < sizeZ;
 	}
 	
-	private int toIndex(int x, int y, int z){
+	// Internal methods
+	
+	protected final int toIndex(int x, int y, int z){
 		return y+sizeY*(x+radX)+sizeY*sizeX*(z+radZ);
 	}
 	
-	private void toPos(int index, PosMutable pos){
+	protected final void toPos(int index, PosMutable pos){
 		pos.setZ(MathUtil.floor((double)index/(sizeY*sizeX)));
 		pos.setX(MathUtil.floor((double)(index-(pos.getZ()*sizeY*sizeX))/sizeY));
 		pos.setY(index-(sizeY*sizeX*pos.getZ())-(sizeY*pos.getX()));
@@ -54,7 +75,9 @@ public final class StructureWorld{
 		pos.z -= radZ;
 	}
 	
-	public boolean setBlock(int x, int y, int z, Block block){
+	// Setting block information
+	
+	public final boolean setBlock(int x, int y, int z, Block block){
 		return setBlock(x,y,z,block,0);
 	}
 	
@@ -75,16 +98,19 @@ public final class StructureWorld{
 		else return false;
 	}
 	
-	public boolean setBlock(int x, int y, int z, BlockInfo blockInfo){
+	public final boolean setBlock(int x, int y, int z, BlockInfo blockInfo){
 		return setBlock(x,y,z,blockInfo.block,blockInfo.meta);
 	}
 	
-	public boolean setAir(int x, int y, int z){
+	public final boolean setAir(int x, int y, int z){
 		return setBlock(x,y,z,Blocks.air,0);
 	}
 	
-	public void setAttentionWhore(int x, int y, int z, BlockInfo info){
-		if (isInside(x,y,z))attentionWhores.put(toIndex(x,y,z),info);
+	public void setAttentionWhore(int x, int y, int z, @Nullable BlockInfo info){
+		if (isInside(x,y,z)){
+			if (info == null)attentionWhores.remove(toIndex(x,y,z));
+			else attentionWhores.put(toIndex(x,y,z),info);
+		}
 	}
 	
 	public boolean setTileEntity(int x, int y, int z, IStructureTileEntity provider){
@@ -93,6 +119,8 @@ public final class StructureWorld{
 		tileEntityMap.put(toIndex(x,y,z),provider);
 		return true;
 	}
+	
+	// Getting block information
 	
 	public Block getBlock(int x, int y, int z){
 		return isInside(x,y,z) ? Objects.firstNonNull(this.blocks[toIndex(x,y,z)],Blocks.air) : Blocks.air;
@@ -106,25 +134,80 @@ public final class StructureWorld{
 		return !isInside(x,y,z) || Objects.firstNonNull(this.blocks[toIndex(x,y,z)],Blocks.air) == Blocks.air;
 	}
 	
+	public final int getTopY(int x, int z){
+		return getTopY(x,z,sizeY-1);
+	}
+	
+	public int getTopY(int x, int z, int startY){
+		int y = startY;
+		while(isAir(x,y,z) && --y >= 0);
+		return y;
+	}
+	
+	public final int getTopY(int x, int z, Block block){
+		return getTopY(x,z,block,sizeY-1);
+	}
+	
+	public int getTopY(int x, int z, Block block, int startY){
+		int y = startY;
+		while(getBlock(x,y,z) != block && --y >= 0);
+		return y;
+	}
+	
+	// Pos utility methods
+	
+	public final boolean setBlock(Pos pos, Block block){
+		return setBlock(pos.getX(),pos.getY(),pos.getZ(),block,0);
+	}
+	
+	public final boolean setBlock(Pos pos, Block block, int metadata){
+		return setBlock(pos.getX(),pos.getY(),pos.getZ(),block,metadata);
+	}
+	
+	public final boolean setBlock(Pos pos, BlockInfo blockInfo){
+		return setBlock(pos.getX(),pos.getY(),pos.getZ(),blockInfo.block,blockInfo.meta);
+	}
+	
+	public final boolean setAir(Pos pos){
+		return setAir(pos.getX(),pos.getY(),pos.getZ());
+	}
+	
+	public final boolean setTileEntity(Pos pos, IStructureTileEntity provider){
+		return setTileEntity(pos.getX(),pos.getY(),pos.getZ(),provider);
+	}
+	
+	public final Block getBlock(Pos pos){
+		return getBlock(pos.getX(),pos.getY(),pos.getZ());
+	}
+	
+	public final int getMetadata(Pos pos){
+		return getMetadata(pos.getX(),pos.getY(),pos.getZ());
+	}
+	
+	public final boolean isAir(Pos pos){
+		return isAir(pos.getX(),pos.getY(),pos.getZ());
+	}
+	
+	// Entities
+	
 	public void addEntity(Entity entity){
-		entityList.add(entity);
+		entityList.add(Pair.of(entity,null));
+	}
+	
+	public void addEntity(Entity entity, Consumer<Entity> callback){
+		entityList.add(Pair.of(entity,callback));
 	}
 	
 	public <T extends Entity> Stream<T> getEntities(final Class<T> exactClassToMatch){
-		return (Stream<T>)entityList.stream().filter(entity -> entity.getClass() == exactClassToMatch);
+		return (Stream<T>)entityList.stream().filter(info -> info.getKey().getClass() == exactClassToMatch).map(info -> info.getKey());
 	}
 	
+	// Generating
+	
 	public void generateInWorld(World world, Random rand, int centerX, int bottomY, int centerZ){
+		generateBlocksInWorld(world,rand,centerX,bottomY,centerZ);
+		
 		PosMutable pos = new PosMutable();
-		int x, y, z, index = -1;
-
-		for(z = -radZ; z <= radZ; z++){
-			for(x = -radX; x <= radX; x++){
-				for(y = 0; y < sizeY; y++){
-					if (blocks[++index] != null)pos.set(centerX+x,bottomY+y,centerZ+z).setBlock(world,blocks[index],metadata[index],2);
-				}
-			}
-		}
 		
 		attentionWhores.forEachEntry((ind, value) -> {
 			toPos(ind,pos);
@@ -150,10 +233,27 @@ public final class StructureWorld{
 			return true;
 		});
 		
-		entityList.forEach(entity -> {
+		entityList.forEach(info -> {
+			Entity entity = info.getKey();
+			
 			entity.setPosition(centerX+entity.posX,bottomY+entity.posY,centerZ+entity.posZ);
 			entity.setWorld(world);
 			world.spawnEntityInWorld(entity);
+			
+			if (info.getValue() != null)info.getValue().accept(entity);
 		});
+	}
+	
+	protected void generateBlocksInWorld(World world, Random rand, int centerX, int bottomY, int centerZ){
+		PosMutable pos = new PosMutable();
+		int x, y, z, index = -1;
+		
+		for(z = -radZ; z <= radZ; z++){
+			for(x = -radX; x <= radX; x++){
+				for(y = 0; y < sizeY; y++){
+					if (blocks[++index] != null)pos.set(centerX+x,bottomY+y,centerZ+z).setBlock(world,blocks[index],metadata[index],2);
+				}
+			}
+		}
 	}
 }

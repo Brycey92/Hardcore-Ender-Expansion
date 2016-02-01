@@ -4,31 +4,31 @@ import net.minecraft.client.renderer.texture.IIconRegister;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
-import net.minecraft.entity.boss.IBossDisplayData;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.EnumRarity;
 import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.IIcon;
 import net.minecraft.world.World;
 import chylex.hee.entity.fx.FXType;
 import chylex.hee.game.achievements.AchievementManager;
-import chylex.hee.mechanics.enhancements.EnhancementHandler;
-import chylex.hee.mechanics.enhancements.types.TransferenceGemEnhancements;
-import chylex.hee.mechanics.misc.GemSideEffects;
 import chylex.hee.packets.PacketPipeline;
 import chylex.hee.packets.client.C20Effect;
 import chylex.hee.packets.client.C21EffectEntity;
-import chylex.hee.system.util.ItemUtil;
+import chylex.hee.system.abstractions.nbt.NBT;
+import chylex.hee.system.abstractions.nbt.NBTCompound;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
-public class ItemTransferenceGem extends ItemAbstractEnergyAcceptor{
+public class ItemTransferenceGem extends ItemAbstractGem{
 	private static final GemData clientCache = new GemData();
 	
 	@SideOnly(Side.CLIENT)
 	private IIcon[] iconArray;
+	
+	public ItemTransferenceGem(){
+		setMaxDamage(204);
+	}
 	
 	@Override
 	public int getEnergyAccepted(ItemStack is){
@@ -41,15 +41,8 @@ public class ItemTransferenceGem extends ItemAbstractEnergyAcceptor{
 	}
 	
 	@Override
-	public void onUpdate(ItemStack is, World world, Entity entity, int slot, boolean isHeld){
-		if (ItemUtil.getTagRoot(is,false).hasKey("cooldown")){
-			byte cooldown = is.getTagCompound().getByte("cooldown");
-			
-			if (--cooldown <= 0)is.getTagCompound().removeTag("cooldown");
-			else is.getTagCompound().setByte("cooldown",cooldown);
-		}
-		
-		super.onUpdate(is,world,entity,slot,isHeld);
+	protected byte getCooldown(){
+		return 50;
 	}
 	
 	@Override
@@ -74,8 +67,8 @@ public class ItemTransferenceGem extends ItemAbstractEnergyAcceptor{
 	
 	@Override
 	public boolean itemInteractionForEntity(ItemStack is, EntityPlayer player, EntityLivingBase entity){
-		if (entity instanceof IBossDisplayData || !EnhancementHandler.hasEnhancement(is,TransferenceGemEnhancements.BEAST) || player.isSneaking())return false;
-		tryTeleportEntity(is,player,entity);
+		/* TODO if (entity instanceof IBossDisplayData || !EnhancementHandler.hasEnhancement(is,TransferenceGemEnhancements.BEAST) || player.isSneaking())return false;
+		tryTeleportEntity(is,player,entity);*/
 		return true;
 	}
 	
@@ -85,11 +78,10 @@ public class ItemTransferenceGem extends ItemAbstractEnergyAcceptor{
 	}
 	
 	public ItemStack tryTeleportEntity(ItemStack is, EntityPlayer player, Entity entity){
-		if (entity.isRiding() || entity.riddenByEntity != null || !is.hasTagCompound())return is;
-		if (ItemUtil.getTagRoot(is,false).hasKey("cooldown"))return is;
+		if (entity.isRiding() || entity.riddenByEntity != null || !is.hasTagCompound() || !canUse(is))return is;
 		
 		GemData gemData = new GemData();
-		gemData.set(is.getTagCompound());
+		gemData.set(NBT.wrap(is.getTagCompound()));
 		
 		if (gemData.isLinked() && entity.dimension == gemData.dim){
 			int itemDamage = is.getItemDamage();
@@ -105,15 +97,12 @@ public class ItemTransferenceGem extends ItemAbstractEnergyAcceptor{
 			entity.setLocationAndAngles(gemData.x+0.5D,gemData.y+1.001D,gemData.z+0.5D,entity.rotationYaw,entity.rotationPitch);
 			entity.fallDistance = 0F;
 			
-			float percBroken = itemDamage/(float)is.getMaxDamage();
+			/* TODO probably remove completely | float percBroken = itemDamage/(float)is.getMaxDamage();
 			if (percBroken > 0.66F && entity.worldObj.rand.nextFloat()*1.4F < percBroken){
 				GemSideEffects.performRandomEffect(entity,percBroken);
-			}
-			
-			ItemUtil.getTagRoot(is,true).setByte("cooldown",(byte)50);
+			}*/
 			
 			PacketPipeline.sendToAllAround(entity,64D,new C20Effect(FXType.Basic.GEM_TELEPORT_TO,entity));
-			// TODO CausatumUtils.increase(player,CausatumMeters.ITEM_USAGE,1F);
 		}
 		
 		return is;
@@ -121,15 +110,9 @@ public class ItemTransferenceGem extends ItemAbstractEnergyAcceptor{
 	
 	@Override
 	@SideOnly(Side.CLIENT)
-	public int getColorFromItemStack(ItemStack is, int pass){
-		return ItemUtil.getTagRoot(is,false).hasKey("cooldown") ? (192<<16|192<<8|192) : super.getColorFromItemStack(is,pass);
-	}
-	
-	@Override
-	@SideOnly(Side.CLIENT)
 	public void addInformation(ItemStack is, EntityPlayer player, List textLines, boolean showAdvancedInfo){
 		if (is.hasTagCompound()){
-			clientCache.set(is.getTagCompound());
+			clientCache.set(NBT.wrap(is.getTagCompound()));
 			
 			if (clientCache.isLinked()){
 				textLines.add(EnumChatFormatting.GRAY+I18n.format("item.transferenceGem.info.linked"));
@@ -137,7 +120,7 @@ public class ItemTransferenceGem extends ItemAbstractEnergyAcceptor{
 			}
 		}
 		
-		EnhancementHandler.appendEnhancementNames(is,textLines);
+		super.addInformation(is,player,textLines,showAdvancedInfo);
 	}
 	
 	@Override
@@ -174,8 +157,8 @@ public class ItemTransferenceGem extends ItemAbstractEnergyAcceptor{
 	private static class GemData{
 		private int dim, x, y, z;
 		
-		private void set(NBTTagCompound nbt){
-			set(nbt.hasKey("HED_Gem_Dim") ? nbt.getInteger("HED_Gem_Dim") : -999,nbt.getInteger("HED_Gem_X"),nbt.getInteger("HED_Gem_Y"),nbt.getInteger("HED_Gem_Z"));
+		private void set(NBTCompound tag){
+			set(tag.hasKey("HED_Gem_Dim") ? tag.getInt("HED_Gem_Dim") : -999,tag.getInt("HED_Gem_X"),tag.getInt("HED_Gem_Y"),tag.getInt("HED_Gem_Z"));
 		}
 		
 		private void set(int dimension, int x, int y, int z){
@@ -190,11 +173,11 @@ public class ItemTransferenceGem extends ItemAbstractEnergyAcceptor{
 		}
 		
 		public void saveToItemStack(ItemStack is){
-			NBTTagCompound nbt = ItemUtil.getTagRoot(is,true);
-			nbt.setInteger("HED_Gem_Dim",dim);
-			nbt.setInteger("HED_Gem_X",x);
-			nbt.setInteger("HED_Gem_Y",y);
-			nbt.setInteger("HED_Gem_Z",z);
+			NBTCompound tag = NBT.item(is,true);
+			tag.setInt("HED_Gem_Dim",dim);
+			tag.setInt("HED_Gem_X",x);
+			tag.setInt("HED_Gem_Y",y);
+			tag.setInt("HED_Gem_Z",z);
 		}
 	}
 }

@@ -9,23 +9,22 @@ import net.minecraftforge.common.ForgeChunkManager;
 import net.minecraftforge.common.ForgeChunkManager.LoadingCallback;
 import net.minecraftforge.common.ForgeChunkManager.Ticket;
 import net.minecraftforge.common.ForgeChunkManager.Type;
-import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.world.WorldEvent;
 import chylex.hee.HardcoreEnderExpansion;
 import chylex.hee.entity.boss.EntityBossDragon;
 import chylex.hee.game.save.SaveData;
 import chylex.hee.game.save.types.global.DragonFile;
+import chylex.hee.system.abstractions.entity.EntitySelector;
 import chylex.hee.system.logging.Log;
 import chylex.hee.system.logging.Stopwatch;
+import chylex.hee.system.util.GameRegistryUtil;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 
 public class DragonChunkManager implements LoadingCallback{
-	private static DragonChunkManager instance;
+	private static final DragonChunkManager instance = new DragonChunkManager();
 	
 	public static void register(){
-		if (instance != null)throw new RuntimeException("Cannot register DragonChunkManager twice!");
-		instance = new DragonChunkManager();
-		MinecraftForge.EVENT_BUS.register(instance);
+		GameRegistryUtil.registerEventHandler(instance);
 		ForgeChunkManager.setForcedChunkLoadingCallback(HardcoreEnderExpansion.instance,instance);
 	}
 	
@@ -91,7 +90,7 @@ public class DragonChunkManager implements LoadingCallback{
 	
 	private Ticket ticket;
 	private int prevChunkX = Integer.MAX_VALUE, prevChunkZ = Integer.MAX_VALUE;
-	private byte timer;
+	private int timer;
 	
 	@Override
 	public void ticketsLoaded(List<Ticket> tickets, World world){
@@ -121,7 +120,7 @@ public class DragonChunkManager implements LoadingCallback{
 			e.world.getChunkFromChunkCoords(chunk.chunkXPos,chunk.chunkZPos);
 			
 			int xx = chunk.chunkXPos*16, zz = chunk.chunkZPos*16;
-			List<EntityBossDragon> list = e.world.getEntitiesWithinAABB(EntityBossDragon.class,AxisAlignedBB.getBoundingBox(xx,-32,zz,xx+16,512,zz+16));
+			List<EntityBossDragon> list = EntitySelector.type(e.world,EntityBossDragon.class,AxisAlignedBB.getBoundingBox(xx,-32,zz,xx+16,512,zz+16));
 			
 			if (!list.isEmpty()){
 				Log.debug("Loading dragon based on last stored chunk.");

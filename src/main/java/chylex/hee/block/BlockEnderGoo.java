@@ -67,7 +67,7 @@ public class BlockEnderGoo extends BlockFluidClassic{
 					currentPos.setBlock(world,Blocks.flowing_water,2);
 					
 					for(int b = 0; b < 2+rand.nextInt(5); b++){
-						mpos.set(currentPos).move(Facing6.list[rand.nextInt(Facing6.list.length)]);
+						mpos.set(currentPos).move(Facing6.random(rand));
 						if (mpos.getBlock(world) == this)mpos.setBlock(world,Blocks.flowing_water,2);
 					}
 					
@@ -80,28 +80,22 @@ public class BlockEnderGoo extends BlockFluidClassic{
 	@Override
 	public void velocityToAddToEntity(World world, int x, int y, int z, Entity entity, Vec3 vec){}
 	
-	private static final PotionEffect weakness = new PotionEffect(Potion.weakness.id,5,1,false),
-									  miningFatigue = new PotionEffect(Potion.digSlowdown.id,5,1,false),
-									  poison = new PotionEffect(Potion.poison.id,100,2,false);
-	
 	@Override
 	public void onEntityCollidedWithBlock(World world, int x, int y, int z, Entity entity){
 		if (!world.isRemote && entity instanceof EntityLivingBase && !GlobalMobData.isEnderGooTolerant((EntityLivingBase)entity)){
 			EntityLivingBase e = (EntityLivingBase)entity;
-			e.addPotionEffect(weakness);
-			e.addPotionEffect(miningFatigue);
+			e.addPotionEffect(new PotionEffect(Potion.weakness.id,5,1,false));
+			e.addPotionEffect(new PotionEffect(Potion.digSlowdown.id,5,1,false));
 			
 			PotionEffect eff = e.getActivePotionEffect(Potion.poison);
-			if (eff == null){
-				e.addPotionEffect(poison);
-				if ((eff = e.getActivePotionEffect(Potion.poison)) == null)return;
-			}
+			if (eff == null)e.addPotionEffect(eff = new PotionEffect(Potion.poison.id,100,2,false));
 			
 			if (eff.getDuration() < 102)eff.combine(new PotionEffect(Potion.poison.id,eff.getDuration()+17,eff.getAmplifier(),eff.getIsAmbient()));
+			// TODO FIX THE POISON MESS SOMEHOW ALSO MOTION RANDOMLY BREAKS HALP
 			
 			Vec3 vec = Vec3.createVectorHelper(0D,0D,0D);
-			super.velocityToAddToEntity(world,x,y,z,entity,vec);
-			vec.normalize();
+			super.velocityToAddToEntity(world,x,y,z,entity,vec); // UPD breaks with removed vec mutability in 1.8
+			vec.normalize(); // TODO SHOULD THIS ASSIGN TO VEC WHAT IS THIS
 			
 			entity.addVelocity(vec.xCoord*0.0075D,vec.yCoord*0.005D,vec.zCoord*0.0075D);
 			entity.motionX *= 0.25D;

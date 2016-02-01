@@ -24,20 +24,19 @@ import chylex.hee.item.block.ItemBlockWithSubtypes.IBlockSubtypes;
 import chylex.hee.proxy.ModCommonProxy;
 import chylex.hee.system.abstractions.Pos;
 import chylex.hee.system.collections.CollectionUtil;
-import chylex.hee.system.util.MathUtil;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
 public class BlockCrossedDecoration extends BlockFlower implements IShearable, IBlockSubtypes{
 	private static final String[] decorTypes = new String[]{
-		"decor_bullrush_bottom", "decor_bullrush_top", "decor_thorn_bush", "decor_infested_grass", "decor_infested_fern", "decor_infested_tallgrass",
+		"", "", "decor_thorn_bush", "decor_infested_grass", "decor_infested_fern", "decor_infested_tallgrass",
 		"decor_lily_fire", "decor_violet_moss_tall", "decor_violet_moss_moderate", "decor_violet_moss_short",
 		"decor_flameweed_1", "decor_flameweed_2", "decor_flameweed_3", "decor_shadow_orchid"
 	};
 	
 	public static final byte dataThornBush = 2, dataInfestedGrass = 3, dataInfestedFern = 4, dataInfestedTallgrass = 5,
-					   		 dataLilyFire = 6, dataVioletMossTall = 7, dataVioletMossModerate = 8, dataVioletMossShort = 9,
-					   		 dataFlameweed1 = 10, dataFlameweed2 = 11, dataFlameweed3 = 12, dataShadowOrchid = 13;
+	                         dataLilyFire = 6, dataVioletMossTall = 7, dataVioletMossModerate = 8, dataVioletMossShort = 9,
+	                         dataFlameweed1 = 10, dataFlameweed2 = 11, dataFlameweed3 = 12, dataShadowOrchid = 13;
 	
 	@SideOnly(Side.CLIENT)
 	private IIcon[] iconArray;
@@ -120,7 +119,7 @@ public class BlockCrossedDecoration extends BlockFlower implements IShearable, I
 	@Override
 	@SideOnly(Side.CLIENT)
 	public IIcon getIcon(int side, int meta){
-		return iconArray[MathUtil.clamp(meta,0,decorTypes.length-1)];
+		return CollectionUtil.getClamp(iconArray,meta);
 	}
 	
 	@Override

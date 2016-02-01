@@ -1,66 +1,59 @@
 package chylex.hee.mechanics;
-import net.minecraft.entity.item.EntityItemFrame;
+import net.minecraft.entity.item.EntityEnderPearl;
 import net.minecraft.init.Items;
 import net.minecraft.item.ItemStack;
 import net.minecraft.world.World;
-import net.minecraftforge.event.entity.player.EntityInteractEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent.Action;
 import chylex.hee.entity.projectile.EntityProjectileEyeOfEnder;
-import chylex.hee.init.ItemList;
-import chylex.hee.item.ItemTransferenceGem;
-import chylex.hee.mechanics.enhancements.EnhancementHandler;
-import chylex.hee.mechanics.enhancements.types.TransferenceGemEnhancements;
-import chylex.hee.system.util.ItemUtil;
+import chylex.hee.game.save.SaveData;
+import chylex.hee.game.save.types.player.RespawnFile;
+import chylex.hee.system.util.GameRegistryUtil;
 import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
+import cpw.mods.fml.common.gameevent.PlayerEvent.PlayerRespawnEvent;
 
 public class MiscEvents{
-	/*
-	 * Eye of Ender throwing
-	 */
-	@SubscribeEvent(priority = EventPriority.HIGHEST, receiveCanceled = true)
-	public void onItemUse(PlayerInteractEvent e){
-		if (e.action == Action.RIGHT_CLICK_AIR && !e.world.isRemote && e.entityPlayer.getHeldItem() != null && e.entityPlayer.getHeldItem().getItem() == Items.ender_eye){
-			World world = e.world;
-			world.playSoundAtEntity(e.entity,"random.bow",0.5F,0.4F/(world.rand.nextFloat()*0.4F+0.8F));
-			world.playAuxSFXAtEntity(null,1002,(int)e.entity.posX,(int)e.entity.posY,(int)e.entity.posZ,0);
-			
-			if (!e.entityPlayer.capabilities.isCreativeMode)--e.entityPlayer.getHeldItem().stackSize;
-			world.spawnEntityInWorld(new EntityProjectileEyeOfEnder(world,e.entity));
-			
-			e.setCanceled(true);
-		}
+	public static void register(){
+		GameRegistryUtil.registerEventHandler(new MiscEvents());
 	}
 	
 	/*
-	 * Silverfish dropping blood
+	 * Eye of Ender throwing
+	 * Ender Pearl throwing in creative mode
 	 */
-	/* TODO @SubscribeEvent
-	public void onLivingDrops(LivingDropsEvent e){
-		if (e.entity.worldObj.isRemote || !e.recentlyHit)return;
-		
-		if (e.entity.getClass() == EntitySilverfish.class && e.entityLiving.getRNG().nextInt(14-Math.min(e.lootingLevel,4)) == 0){
-			boolean drop = e.entityLiving.getRNG().nextInt(4) == 0;
-			boolean isPlayer = e.source.getEntity() instanceof EntityPlayer;
+	@SubscribeEvent(priority = EventPriority.HIGHEST, receiveCanceled = true)
+	public void onItemUse(PlayerInteractEvent e){
+		if (e.action == Action.RIGHT_CLICK_AIR && !e.world.isRemote && e.entityPlayer.getHeldItem() != null){
+			ItemStack held = e.entityPlayer.getHeldItem();
+			World world = e.world;
 			
-			if (!drop && isPlayer){
-				ItemStack held = ((EntityPlayer)e.source.getEntity()).inventory.getCurrentItem();
-				if (held != null && held.getItem() == Items.golden_sword)drop = true;
+			if (held.getItem() == Items.ender_pearl && e.entityPlayer.capabilities.isCreativeMode){
+				world.playSoundAtEntity(e.entity,"random.bow",0.5F,0.4F/(world.rand.nextFloat()*0.4F+0.8F));
+				world.spawnEntityInWorld(new EntityEnderPearl(world,e.entityLiving));
+				e.setCanceled(true);
 			}
-			
-			if (drop){
-				EntityItem item = new EntityItem(e.entity.worldObj,e.entity.posX,e.entity.posY,e.entity.posZ,new ItemStack(ItemList.silverfish_blood));
-				item.delayBeforeCanPickup = 10;
-				e.drops.add(item);
+			else if (held.getItem() == Items.ender_eye){
+				world.playSoundAtEntity(e.entity,"random.bow",0.5F,0.4F/(world.rand.nextFloat()*0.4F+0.8F));
+				world.playAuxSFXAtEntity(null,1002,(int)e.entity.posX,(int)e.entity.posY,(int)e.entity.posZ,0);
+				
+				if (!e.entityPlayer.capabilities.isCreativeMode)--held.stackSize;
+				world.spawnEntityInWorld(new EntityProjectileEyeOfEnder(world,e.entity));
+				
+				e.setCanceled(true);
 			}
 		}
-	}*/
+	}
+	
+	@SubscribeEvent(priority = EventPriority.LOWEST)
+	public void onPlayerRespawn(PlayerRespawnEvent e){
+		SaveData.player(e.player,RespawnFile.class).loadInventory(e.player);
+	}
 	
 	/*
 	 * Right-clicking on item frame, mob and item with Transference Gem
 	 */
-	@SubscribeEvent
+	/* TODO @SubscribeEvent
 	public void onPlayerInteractEntity(EntityInteractEvent e){
 		if (e.entity.worldObj.isRemote)return;
 		
@@ -78,5 +71,7 @@ public class MiscEvents{
 				e.setCanceled(true);
 			}
 		}
-	}
+	}*/
+	
+	private MiscEvents(){}
 }

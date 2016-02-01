@@ -1,4 +1,5 @@
 package chylex.hee.system.util;
+import java.util.Iterator;
 import net.minecraft.block.Block;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityList;
@@ -7,9 +8,12 @@ import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.crafting.FurnaceRecipes;
 import net.minecraft.tileentity.TileEntity;
+import net.minecraftforge.common.MinecraftForge;
 import chylex.hee.HardcoreEnderExpansion;
+import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.registry.EntityRegistry;
 import cpw.mods.fml.common.registry.GameRegistry;
+import cpw.mods.fml.common.registry.GameRegistry.UniqueIdentifier;
 
 public final class GameRegistryUtil{
 	public static void registerBlock(Block block, String name, Class<? extends ItemBlock> itemBlockClass){
@@ -44,6 +48,56 @@ public final class GameRegistryUtil{
 	
 	public static void addSmeltingRecipe(ItemStack input, ItemStack output, float experience){
 		FurnaceRecipes.smelting().func_151394_a(input,output,experience);
+	}
+	
+	public static Iterable<Block> getBlocks(){
+		return new Iterable<Block>(){
+			@Override
+			public Iterator<Block> iterator(){
+				return Block.blockRegistry.iterator();
+			}
+		};
+	}
+	
+	public static Iterable<Item> getItems(){
+		return new Iterable<Item>(){
+			@Override
+			public Iterator<Item> iterator(){
+				return Item.itemRegistry.iterator();
+			}
+		};
+	}
+	
+	// might not fit, but eh
+	
+	public static void registerEventHandler(Object o){
+		MinecraftForge.EVENT_BUS.register(o);
+		FMLCommonHandler.instance().bus().register(o);
+	}
+	
+	public static void unregisterEventHandler(Object o){
+		MinecraftForge.EVENT_BUS.unregister(o);
+		FMLCommonHandler.instance().bus().unregister(o);
+	}
+	
+	// protection against idiots who can't register their shit properly
+	
+	public static UniqueIdentifier findIdentifier(Block block){
+		try{
+			return GameRegistry.findUniqueIdentifierFor(block);
+		}
+		catch(Exception e){
+			return null;
+		}
+	}
+	
+	public static UniqueIdentifier findIdentifier(Item item){
+		try{
+			return GameRegistry.findUniqueIdentifierFor(item);
+		}
+		catch(Exception e){
+			return null;
+		}
 	}
 	
 	private GameRegistryUtil(){}

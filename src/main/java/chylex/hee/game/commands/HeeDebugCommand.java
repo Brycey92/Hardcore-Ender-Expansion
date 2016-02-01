@@ -1,7 +1,5 @@
 package chylex.hee.game.commands;
-import java.util.List;
 import net.minecraft.command.ICommandSender;
-import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumChatFormatting;
@@ -12,14 +10,17 @@ import net.minecraftforge.common.DimensionManager;
 import org.apache.commons.lang3.ArrayUtils;
 import chylex.hee.HardcoreEnderExpansion;
 import chylex.hee.entity.boss.EntityBossDragon;
-import chylex.hee.init.BlockList;
+import chylex.hee.game.save.SaveData;
+import chylex.hee.game.save.types.player.CompendiumFile;
 import chylex.hee.init.ItemList;
-import chylex.hee.system.abstractions.Pos;
+import chylex.hee.mechanics.compendium.KnowledgeRegistrations;
+import chylex.hee.mechanics.compendium.content.KnowledgeFragment;
+import chylex.hee.mechanics.compendium.content.KnowledgeObject;
+import chylex.hee.proxy.ModCommonProxy.MessageType;
+import chylex.hee.system.abstractions.entity.EntitySelector;
+import chylex.hee.system.abstractions.nbt.NBT;
 import chylex.hee.system.logging.Log;
 import chylex.hee.system.logging.Stopwatch;
-import chylex.hee.system.test.UnitTest.RunTime;
-import chylex.hee.system.test.UnitTester;
-import chylex.hee.system.util.ItemUtil;
 import com.google.common.reflect.ClassPath;
 import com.google.common.reflect.ClassPath.ClassInfo;
 
@@ -46,6 +47,7 @@ public class HeeDebugCommand extends BaseCommand{
 				"/heedebug dragon-freeze\n"+
 				"/heedebug dragon-debug-start\n"+
 				"/heedebug dragon-debug-stop\n"+
+				"/heedebug compendium-reload\n"+
 				"/heedebug viewitems\n"+
 				"/heedebug speedup\n"+
 				"/heedebug noweather\n"+
@@ -70,17 +72,12 @@ public class HeeDebugCommand extends BaseCommand{
 				return;
 			}
 			
-			boolean found = false;
+			EntityPlayer target = EntitySelector.players(dragon.worldObj).stream().filter(player -> player.getCommandSenderName().equalsIgnoreCase(args[1])).findAny().orElse(null);
 			
-			for(EntityPlayer player:(List<EntityPlayer>)dragon.worldObj.playerEntities){
-				if (player.getCommandSenderName().equalsIgnoreCase(args[1])){
-					dragon.trySetTarget(player);
-					found = true;
-					break;
-				}
+			if (target != null){
+				dragon.trySetTarget(target);
 			}
-			
-			if (!found){
+			else{
 				sendMessage(sender,"No such player.");
 				return;
 			}
@@ -106,11 +103,15 @@ public class HeeDebugCommand extends BaseCommand{
 		else if (args[0].equalsIgnoreCase("dragon-debug-stop")){
 			DebugBoard.stopDebug();
 		}
+		else if (args[0].equalsIgnoreCase("compendium-reload")){
+			for(KnowledgeObject<?> obj:KnowledgeObject.getAllObjects())obj.reset();
+			KnowledgeRegistrations.initialize();
+		}
 		else if (args[0].equalsIgnoreCase("viewitems")){
-			HardcoreEnderExpansion.proxy.openGui("itemviewer");
+			HardcoreEnderExpansion.proxy.sendMessage(MessageType.VIEW_MOD_CONTENT);
 		}
 		else if (args[0].equalsIgnoreCase("speedup")){
-			HardcoreEnderExpansion.proxy.openGui("speedup");
+			HardcoreEnderExpansion.proxy.sendMessage(MessageType.SPEED_UP_PLAYER);
 		}
 		else if (args[0].equalsIgnoreCase("noweather")){
 			for(WorldServer world:DimensionManager.getWorlds()){
@@ -126,7 +127,7 @@ public class HeeDebugCommand extends BaseCommand{
 		}
 		else if (args[0].equalsIgnoreCase("stick") && args.length >= 2 && sender instanceof EntityPlayer && ItemList.debug_stick != null){
 			ItemStack stick = new ItemStack(ItemList.debug_stick);
-			ItemUtil.getTagRoot(stick,true).setString("type",args[1]);
+			NBT.item(stick,true).setString("type",args[1]);
 			
 			EntityPlayer player = (EntityPlayer)sender;
 			player.inventory.mainInventory[player.inventory.currentItem] = stick;
@@ -166,19 +167,17 @@ public class HeeDebugCommand extends BaseCommand{
 			}
 			
 			return;
-		}
+		}/* TODO
 		else if (args[0].equalsIgnoreCase("unit") && sender instanceof EntityPlayer){
 			StringBuilder build = new StringBuilder();
 			for(int a = 1; a < args.length; a++)build.append(args[a]).append(' ');
 			
 			UnitTester.trigger(RunTime.INGAME,args.length > 1 ? build.deleteCharAt(build.length()-1).toString() : "");
-		}
+		}*/
 		else if (args[0].equalsIgnoreCase("tmp") && sender instanceof EntityPlayer){
 			EntityPlayer player = (EntityPlayer)sender;
 			// tmp command
-			player.worldObj.loadedEntityList.stream().filter(e -> e instanceof EntityItem).forEach(item -> ((EntityItem)item).setDead());
-			Pos c = Pos.at(player).getDown();
-			Pos.forEachBlock(c.offset(-25,0,-25),c.offset(25,-38,25),pos -> pos.setBlock(player.worldObj,BlockList.enhanced_tnt));
+			SaveData.player(player,CompendiumFile.class).tryUnlockHintFragment(player,KnowledgeFragment.fromID(60));
 		}
 		else{
 			sendMessage(sender,"Unknown command.");

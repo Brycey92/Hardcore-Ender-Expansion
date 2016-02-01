@@ -6,6 +6,7 @@ import net.minecraft.tileentity.TileEntityChest;
 import net.minecraft.tileentity.TileEntityFlowerPot;
 import net.minecraft.tileentity.TileEntitySkull;
 import chylex.hee.system.abstractions.facing.Facing4;
+import chylex.hee.system.abstractions.facing.Facing6;
 import chylex.hee.system.util.MathUtil;
 import chylex.hee.world.structure.util.IStructureTileEntity;
 
@@ -23,11 +24,23 @@ public final class Meta{
 		silverfishCracked = 4,
 		silverfishChiseled = 5,
 		
+		planksOak = 0,
+		planksSpruce = 1,
+		planksBirch = 2,
+		planksJungle = 3,
+		planksAcacia = 4,
+		planksDarkOak = 5,
+		
+		slabTop = 8,
+		
 		slabStoneSmoothDouble = 0,
 		slabStoneSmoothBottom = 0,
 		slabStoneSmoothTop = 0+8,
 		slabStoneBrickBottom = 5,
 		slabStoneBrickTop = 5+8,
+		
+		slabWoodSpruceBottom = 1,
+		slabWoodSpruceTop = 1+8,
 		
 		cobbleWallNormal = 0,
 		cobbleWallMossy = 1,
@@ -38,11 +51,16 @@ public final class Meta{
 		endPortalDisabled = 14,
 		endPortalActive = 15,
 		endPortalFramePlain = 0,
-		endPortalFrameAcceptor = 1;
+		endPortalFrameAcceptor = 1,
+		voidPortalFramePlain = 0,
+		voidPortalFrameStorage = 1,
+		voidPortalTravel = 0,
+		voidPortalReturn = 1,
+		voidPortalDisabled = 2;
 	
 	/* === TORCHES === */
 	
-	public static byte getTorch(Facing4 attachedTo){
+	public static int getTorch(Facing4 attachedTo){
 		switch(attachedTo){
 			case WEST_NEGX: return 1;
 			case EAST_POSX: return 2;
@@ -54,7 +72,7 @@ public final class Meta{
 	
 	/* === BUTTONS === */
 	
-	public static byte getButton(Facing4 attachedTo){
+	public static int getButton(Facing4 attachedTo){
 		switch(attachedTo){
 			case WEST_NEGX: return 1;
 			case EAST_POSX: return 2;
@@ -66,7 +84,7 @@ public final class Meta{
 	
 	/* === LADDERS === */
 	
-	public static byte getLadder(Facing4 attachedTo){
+	public static int getLadder(Facing4 attachedTo){
 		switch(attachedTo){
 			case SOUTH_POSZ: return 2;
 			case NORTH_NEGZ: return 3;
@@ -78,19 +96,19 @@ public final class Meta{
 	
 	/* === STAIRS === */
 	
-	public static byte getStairs(Facing4 ascendsTowards, boolean flip){
+	public static int getStairs(Facing4 ascendsTowards, boolean flip){
 		switch(ascendsTowards){
-			case EAST_POSX: return (byte)(0+(flip ? 4 : 0));
-			case WEST_NEGX: return (byte)(1+(flip ? 4 : 0));
-			case SOUTH_POSZ: return (byte)(2+(flip ? 4 : 0));
-			case NORTH_NEGZ: return (byte)(3+(flip ? 4 : 0));
+			case EAST_POSX: return 0+(flip ? 4 : 0);
+			case WEST_NEGX: return 1+(flip ? 4 : 0);
+			case SOUTH_POSZ: return 2+(flip ? 4 : 0);
+			case NORTH_NEGZ: return 3+(flip ? 4 : 0);
 			default: return 0;
 		}
 	}
 	
 	/* === DOORS === */
 	
-	public static byte getDoor(Facing4 opensTowards, boolean upper){
+	public static int getDoor(Facing4 opensTowards, boolean upper){
 		if (upper)return 8;
 		
 		switch(opensTowards){
@@ -104,7 +122,7 @@ public final class Meta{
 	
 	/* === VINES === */
 	
-	public static byte getVine(Facing4 attachedTo){
+	public static int getVine(Facing4 attachedTo){
 		switch(attachedTo){
 			case SOUTH_POSZ: return 1;
 			case WEST_NEGX: return 2;
@@ -114,20 +132,26 @@ public final class Meta{
 		}
 	}
 	
-	public static byte getVine(Facing4 attachedTo1, Facing4 attachedTo2){
-		return (byte)(getVine(attachedTo1)|getVine(attachedTo2));
+	public static int getVine(Facing4 attachedTo1, Facing4 attachedTo2){
+		return getVine(attachedTo1)|getVine(attachedTo2);
 	}
 	
 	/* === DYES AND COLORED BLOCKS === */
 	
 	public enum BlockColor { WHITE, ORANGE, MAGENTA, LIGHT_BLUE, YELLOW, LIME, PINK, GRAY, LIGHT_GRAY, CYAN, PURPLE, BLUE, BROWN, GREEN, RED, BLACK }
 	
-	public static byte getColor(BlockColor color){
+	public static int getColor(BlockColor color){
 		return (byte)color.ordinal();
 	}
 	
-	public static byte getDye(BlockColor color){
-		return (byte)(15-color.ordinal());
+	public static int getDye(BlockColor color){
+		return 15-color.ordinal();
+	}
+	
+	/* === CUSTOM BLOCKS === */
+	
+	public static int getGloomtorch(Facing6 attachedTo){
+		return attachedTo.ordinal()+1;
 	}
 	
 	/* === LOGS === */
@@ -205,6 +229,7 @@ public final class Meta{
 					break;
 			}
 			
+			Pos.at(tile).setMetadata(tile.getWorldObj(),meta);
 			((TileEntityFlowerPot)tile).func_145964_a(Item.getItemFromBlock(block),meta);
 		};
 	}
@@ -224,8 +249,27 @@ public final class Meta{
 		
 		return (tile, rand) -> {
 			tile.getWorldObj().setBlockMetadataWithNotify(tile.xCoord,tile.yCoord,tile.zCoord,meta,3);
-			((TileEntityChest)tile).adjacentChestChecked = true;
-			call.generateTile(tile,rand);
+			if (tile instanceof TileEntityChest)((TileEntityChest)tile).adjacentChestChecked = true;
+			if (call != null)call.generateTile(tile,rand);
+		};
+	}
+	
+	/* === FURNACES === */
+	
+	public static IStructureTileEntity generateFurnace(Facing4 facingTo, IStructureTileEntity call){
+		final int meta;
+		
+		switch(facingTo){
+			case EAST_POSX: meta = 5; break;
+			case WEST_NEGX: meta = 4; break;
+			case SOUTH_POSZ: meta = 3; break;
+			case NORTH_NEGZ: meta = 2; break;
+			default: meta = 0;
+		}
+		
+		return (tile, rand) -> {
+			tile.getWorldObj().setBlockMetadataWithNotify(tile.xCoord,tile.yCoord,tile.zCoord,meta,3);
+			if (call != null)call.generateTile(tile,rand);
 		};
 	}
 	

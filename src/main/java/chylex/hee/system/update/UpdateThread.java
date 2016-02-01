@@ -1,6 +1,7 @@
 package chylex.hee.system.update;
 import java.net.URL;
 import java.net.UnknownHostException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
@@ -9,7 +10,6 @@ import java.util.Map.Entry;
 import net.minecraft.command.CommandBase;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraftforge.common.MinecraftForge;
-import org.apache.commons.codec.Charsets;
 import org.apache.commons.io.IOUtils;
 import chylex.hee.HardcoreEnderExpansion;
 import chylex.hee.system.logging.Log;
@@ -42,7 +42,7 @@ class UpdateThread extends Thread{
 		try{
 			Thread.sleep(3333L);
 			
-			JsonElement root = new JsonParser().parse(IOUtils.toString(new URL(url),Charsets.UTF_8));
+			JsonElement root = new JsonParser().parse(IOUtils.toString(new URL(url),StandardCharsets.UTF_8));
 			
 			List<VersionEntry> versionList = new ArrayList<>();
 			VersionEntry currentVersion = null, newestVersion = null, newestVersionForCurrentMC = null;
@@ -109,15 +109,13 @@ class UpdateThread extends Thread{
 						.append(" for ").append(EnumChatFormatting.YELLOW).append("MC ").append(mcVersion).append(EnumChatFormatting.RESET)
 						.append(", released ").append(newestVersionForCurrentMC.releaseDate).append(".");
 					
-					if (counter >= 1){
-						int days = DragonUtil.getDayDifference(Calendar.getInstance(),currentVersion.convertReleaseDate());
-						int months = MathUtil.floor((days+8D)/30D); // ~22 days rounds up to a full month
-						
-						if (months > 0)message.append(" Your version is ").append(months).append(months == 1 ? " month" : " months").append(" old, and you are ");
-						else message.append(" You are ");
-						
-						message.append(counter).append(counter == 1 ? " version behind." : " versions behind.");
-					}
+					int days = DragonUtil.getDayDifference(Calendar.getInstance(),currentVersion.convertReleaseDate());
+					int months = MathUtil.floor((days+8D)/30D); // ~22 days rounds up to a full month
+					
+					if (months > 0)message.append(" Your version is ").append(months).append(months == 1 ? " month" : " months").append(" old, and you are ");
+					else message.append(" You are ");
+					
+					message.append(counter).append(counter == 1 ? " version behind." : " versions behind.");
 					
 					if (UpdateNotificationManager.enableNewerMC && newestVersion != newestVersionForCurrentMC){
 						message.append(" Also found update ").append(EnumChatFormatting.YELLOW).append(newestVersion.modVersion).append(EnumChatFormatting.RESET)

@@ -9,35 +9,30 @@ import net.minecraft.client.renderer.entity.RenderFireball;
 import net.minecraft.client.renderer.entity.RenderLightningBolt;
 import net.minecraft.client.renderer.entity.RenderSnowball;
 import net.minecraft.client.renderer.tileentity.RenderEnderCrystal;
-import net.minecraft.client.settings.GameSettings;
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.inventory.Container;
-import net.minecraft.stats.IStatStringFormat;
+import net.minecraft.item.Item;
 import net.minecraft.tileentity.TileEntityEndPortal;
-import net.minecraft.util.StatCollector;
+import net.minecraftforge.client.MinecraftForgeClient;
 import org.lwjgl.opengl.Display;
 import chylex.hee.HardcoreEnderExpansion;
 import chylex.hee.entity.block.EntityBlockEnderCrystal;
 import chylex.hee.entity.block.EntityBlockEnhancedTNTPrimed;
 import chylex.hee.entity.block.EntityBlockFallingDragonEgg;
 import chylex.hee.entity.block.EntityBlockFallingObsidian;
-import chylex.hee.entity.block.EntityBlockHomelandCache;
+import chylex.hee.entity.block.EntityBlockTokenHolder;
 import chylex.hee.entity.boss.EntityBossDragon;
-import chylex.hee.entity.boss.EntityBossEnderDemon;
 import chylex.hee.entity.boss.EntityMiniBossEnderEye;
 import chylex.hee.entity.boss.EntityMiniBossFireFiend;
 import chylex.hee.entity.fx.FXEvents;
 import chylex.hee.entity.mob.*;
 import chylex.hee.entity.projectile.*;
 import chylex.hee.entity.technical.EntityTechnicalBase;
-import chylex.hee.entity.weather.EntityWeatherLightningBoltDemon;
 import chylex.hee.entity.weather.EntityWeatherLightningBoltSafe;
 import chylex.hee.game.ConfigHandler;
-import chylex.hee.game.achievements.AchievementManager;
 import chylex.hee.game.commands.HeeClientCommand;
-import chylex.hee.game.save.types.player.CompendiumFile;
-import chylex.hee.gui.ContainerEndPowderEnhancements;
+import chylex.hee.game.creativetab.ModCreativeTab;
 import chylex.hee.gui.GuiItemViewer;
+import chylex.hee.init.BlockList;
 import chylex.hee.init.ItemList;
 import chylex.hee.mechanics.compendium.events.CompendiumEventsClient;
 import chylex.hee.mechanics.misc.Baconizer;
@@ -46,10 +41,22 @@ import chylex.hee.render.RenderNothing;
 import chylex.hee.render.block.RenderBlockCrossedDecoration;
 import chylex.hee.render.block.RenderBlockEndFlowerPot;
 import chylex.hee.render.block.RenderBlockEnhancedTNTPrimed;
-import chylex.hee.render.block.RenderBlockHomelandCache;
+import chylex.hee.render.block.RenderBlockGloomtorch;
+import chylex.hee.render.block.RenderBlockLootChest;
 import chylex.hee.render.block.RenderBlockObsidianSpecial;
+import chylex.hee.render.block.RenderBlockRavishBell;
 import chylex.hee.render.block.RenderBlockSpookyLeaves;
-import chylex.hee.render.entity.*;
+import chylex.hee.render.block.RenderBlockTokenHolder;
+import chylex.hee.render.entity.RenderBossDragon;
+import chylex.hee.render.entity.RenderMiniBossEnderEye;
+import chylex.hee.render.entity.RenderMiniBossFireFiend;
+import chylex.hee.render.entity.RenderMobBabyEnderman;
+import chylex.hee.render.entity.RenderMobEnderman;
+import chylex.hee.render.entity.RenderMobInfestedBat;
+import chylex.hee.render.entity.RenderMobLouse;
+import chylex.hee.render.entity.RenderTexturedMob;
+import chylex.hee.render.item.RenderItemEndermanHead;
+import chylex.hee.render.item.RenderItemLootChest;
 import chylex.hee.render.model.ModelEnderGuardian;
 import chylex.hee.render.model.ModelEndermage;
 import chylex.hee.render.model.ModelEndermanHeadBiped;
@@ -65,7 +72,8 @@ import chylex.hee.render.tileentity.RenderTileEndPortal;
 import chylex.hee.render.tileentity.RenderTileEndermanHead;
 import chylex.hee.render.tileentity.RenderTileEssenceAltar;
 import chylex.hee.render.tileentity.RenderTileLaserBeam;
-import chylex.hee.render.weather.RenderWeatherLightningBoltPurple;
+import chylex.hee.render.tileentity.RenderTileLootChest;
+import chylex.hee.render.tileentity.RenderTileVoidPortal;
 import chylex.hee.sound.MusicManager;
 import chylex.hee.system.logging.Log;
 import chylex.hee.system.logging.Stopwatch;
@@ -73,13 +81,14 @@ import chylex.hee.tileentity.TileEntityCustomSpawner;
 import chylex.hee.tileentity.TileEntityEndermanHead;
 import chylex.hee.tileentity.TileEntityEssenceAltar;
 import chylex.hee.tileentity.TileEntityLaserBeam;
+import chylex.hee.tileentity.TileEntityLootChest;
+import chylex.hee.tileentity.TileEntityVoidPortal;
 import cpw.mods.fml.client.registry.ClientRegistry;
 import cpw.mods.fml.client.registry.RenderingRegistry;
 
 public class ModClientProxy extends ModCommonProxy{
 	public static final Random seedableRand = new Random();
 	public static final ModelEndermanHeadBiped endermanHeadModelBiped = new ModelEndermanHeadBiped();
-	public static boolean modifyVoidChestDescription = false;
 	
 	@Override
 	public void loadConfiguration(){
@@ -93,11 +102,6 @@ public class ModClientProxy extends ModCommonProxy{
 	}
 	
 	@Override
-	public CompendiumFile getClientCompendium(){
-		return CompendiumEventsClient.getClientData();
-	}
-	
-	@Override
 	public void registerRenderers(){
 		Stopwatch.time("ModClientProxy - renderers");
 		
@@ -105,28 +109,36 @@ public class ModClientProxy extends ModCommonProxy{
 		renderIdFlowerPot = RenderingRegistry.getNextAvailableRenderId();
 		renderIdSpookyLeaves = RenderingRegistry.getNextAvailableRenderId();
 		renderIdCrossedDecoration = RenderingRegistry.getNextAvailableRenderId();
+		renderIdRavishBell = RenderingRegistry.getNextAvailableRenderId();
+		renderIdLootChest = RenderingRegistry.getNextAvailableRenderId();
+		renderIdGloomtorch = RenderingRegistry.getNextAvailableRenderId();
 		
 		RenderingRegistry.registerBlockHandler(new RenderBlockObsidianSpecial());
 		RenderingRegistry.registerBlockHandler(new RenderBlockEndFlowerPot());
 		RenderingRegistry.registerBlockHandler(new RenderBlockSpookyLeaves());
 		RenderingRegistry.registerBlockHandler(new RenderBlockCrossedDecoration());
+		RenderingRegistry.registerBlockHandler(new RenderBlockRavishBell());
+		RenderingRegistry.registerBlockHandler(new RenderBlockLootChest());
+		RenderingRegistry.registerBlockHandler(new RenderBlockGloomtorch());
 		
 		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityEssenceAltar.class, new RenderTileEssenceAltar());
 		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityEndermanHead.class, new RenderTileEndermanHead());
 		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityCustomSpawner.class, new RenderTileCustomSpawner());
 		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityLaserBeam.class, new RenderTileLaserBeam());
 		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityEndPortal.class, new RenderTileEndPortal());
+		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityVoidPortal.class, new RenderTileVoidPortal());
+		ClientRegistry.bindTileEntitySpecialRenderer(TileEntityLootChest.class, new RenderTileLootChest());
+		
+		MinecraftForgeClient.registerItemRenderer(Item.getItemFromBlock(BlockList.loot_chest), new RenderItemLootChest());
+		MinecraftForgeClient.registerItemRenderer(Item.getItemFromBlock(BlockList.enderman_head), new RenderItemEndermanHead());
 
 		RenderingRegistry.registerEntityRenderingHandler(EntityBossDragon.class, new RenderBossDragon());
-		RenderingRegistry.registerEntityRenderingHandler(EntityBossEnderDemon.class, new RenderBossEnderDemon());
 		
 		RenderingRegistry.registerEntityRenderingHandler(EntityMiniBossEnderEye.class, new RenderMiniBossEnderEye());
 		RenderingRegistry.registerEntityRenderingHandler(EntityMiniBossFireFiend.class, new RenderMiniBossFireFiend());
 		
 		RenderingRegistry.registerEntityRenderingHandler(EntityMobEnderman.class, new RenderMobEnderman());
-		RenderingRegistry.registerEntityRenderingHandler(EntityMobAngryEnderman.class, new RenderMobAngryEnderman());
 		RenderingRegistry.registerEntityRenderingHandler(EntityMobBabyEnderman.class, new RenderMobBabyEnderman());
-		RenderingRegistry.registerEntityRenderingHandler(EntityMobHomelandEnderman.class, new RenderMobHomelandEnderman());
 		RenderingRegistry.registerEntityRenderingHandler(EntityMobEnderGuardian.class, new RenderTexturedMob(new ModelEnderGuardian(), 0.3F, "ender_guardian.png"));
 		RenderingRegistry.registerEntityRenderingHandler(EntityMobVampiricBat.class, new RenderTexturedMob(new ModelBat(), 0.25F, "bat_vampiric.png", 0.35F));
 		RenderingRegistry.registerEntityRenderingHandler(EntityMobInfestedBat.class, new RenderMobInfestedBat());
@@ -141,7 +153,7 @@ public class ModClientProxy extends ModCommonProxy{
 		RenderingRegistry.registerEntityRenderingHandler(EntityBlockFallingObsidian.class, new RenderFallingBlock());
 		RenderingRegistry.registerEntityRenderingHandler(EntityBlockFallingDragonEgg.class, new RenderFallingBlock());
 		RenderingRegistry.registerEntityRenderingHandler(EntityBlockEnhancedTNTPrimed.class, new RenderBlockEnhancedTNTPrimed());
-		RenderingRegistry.registerEntityRenderingHandler(EntityBlockHomelandCache.class, new RenderBlockHomelandCache());
+		RenderingRegistry.registerEntityRenderingHandler(EntityBlockTokenHolder.class, new RenderBlockTokenHolder());
 		
 		RenderingRegistry.registerEntityRenderingHandler(EntityProjectileFlamingBall.class, new RenderNothing());
 		RenderingRegistry.registerEntityRenderingHandler(EntityProjectileMinerShot.class, new RenderNothing());
@@ -156,7 +168,6 @@ public class ModClientProxy extends ModCommonProxy{
 		RenderingRegistry.registerEntityRenderingHandler(EntityProjectileEyeOfEnder.class, new RenderProjectileEyeOfEnder());
 
 		RenderingRegistry.registerEntityRenderingHandler(EntityWeatherLightningBoltSafe.class, new RenderLightningBolt());
-		RenderingRegistry.registerEntityRenderingHandler(EntityWeatherLightningBoltDemon.class, new RenderWeatherLightningBoltPurple());
 		
 		RenderingRegistry.registerEntityRenderingHandler(EntityTechnicalBase.class, new RenderNothing());
 
@@ -169,45 +180,31 @@ public class ModClientProxy extends ModCommonProxy{
 	public void registerSidedEvents(){
 		Stopwatch.time("ModClientProxy - events");
 		
+		ModCreativeTab.setupTabsClient();
+		
 		OverlayManager.register();
-		// TODO CompendiumEventsClient.register();
+		CompendiumEventsClient.register();
 		// TODO CharmPouchHandlerClient.register();
 		MusicManager.register();
 		FXEvents.register();
 		HeeClientCommand.register();
 		
-		AchievementManager.ENDER_COMPENDIUM.setStatStringFormatter(new IStatStringFormat(){
-			@Override
-			public String formatString(String str){
-				if (hardcoreEnderbacon)str = StatCollector.translateToLocal("achievement.enderCompendium.desc.bacon");
-				
-				try{
-					return String.format(str,GameSettings.getKeyDisplayString(CompendiumEventsClient.getCompendiumKeyCode()));
-				}catch(Exception e){
-					return "Error: "+e.getLocalizedMessage();
-				}
-			}
-		});
-		
 		Stopwatch.finish("ModClientProxy - events");
 	}
 	
 	@Override
-	public void openGui(String type){
-		if (type.equals("itemviewer"))Minecraft.getMinecraft().displayGuiScreen(new GuiItemViewer());
-		else if (type.equals("speedup"))Minecraft.getMinecraft().thePlayer.capabilities.setFlySpeed(0.3F);
-	}
-	
-	@Override
-	public void sendMessage(MessageType msgType, int[] data){
+	public void sendMessage(MessageType msgType, int...data){
 		switch(msgType){
-			case ENHANCEMENT_SLOT_RESET:
-				Container container = Minecraft.getMinecraft().thePlayer.openContainer;
-				if (container instanceof ContainerEndPowderEnhancements)((ContainerEndPowderEnhancements)container).onEnhancementSlotChangeClient(-1);
-				break;
-				
 			case DEBUG_TITLE_SET:
 				Display.setTitle(Display.getTitle()+" - HardcoreEnderExpansion - "+(Log.isDeobfEnvironment ? "dev" : "debug")+' '+HardcoreEnderExpansion.modVersion);
+				break;
+				
+			case SPEED_UP_PLAYER:
+				Minecraft.getMinecraft().thePlayer.capabilities.setFlySpeed(0.3F);
+				break;
+				
+			case VIEW_MOD_CONTENT:
+				Minecraft.getMinecraft().displayGuiScreen(new GuiItemViewer());
 				break;
 		}
 	}

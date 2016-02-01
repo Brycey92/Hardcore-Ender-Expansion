@@ -3,15 +3,17 @@ import java.util.Random;
 import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.particle.*;
+import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.init.Blocks;
 import net.minecraft.item.ItemStack;
 import net.minecraft.world.World;
 import chylex.hee.entity.fx.EntityBigPortalFX;
 import chylex.hee.entity.fx.EntityCustomBubbleFX;
 import chylex.hee.entity.fx.EntityEnderGooFX;
-import chylex.hee.entity.fx.EntityEnergyClusterFX;
+import chylex.hee.entity.fx.EntityEnergyFX;
 import chylex.hee.entity.fx.EntityGlitterFX;
 import chylex.hee.entity.fx.EntityOrbitingPortalFX;
+import chylex.hee.entity.fx.behavior.ParticleBehaviorFlyOff;
 import chylex.hee.entity.fx.behavior.ParticleBehaviorMoveTo;
 import chylex.hee.entity.item.EntityItemAltar;
 import chylex.hee.entity.item.EntityItemIgneousRock;
@@ -20,6 +22,7 @@ import chylex.hee.entity.projectile.EntityProjectileCorruptedEnergy;
 import chylex.hee.entity.projectile.EntityProjectileSpatialDash;
 import chylex.hee.init.ItemList;
 import chylex.hee.mechanics.curse.CurseType;
+import chylex.hee.system.abstractions.Pos;
 import chylex.hee.system.util.MathUtil;
 import chylex.hee.tileentity.TileEntityEnergyCluster;
 
@@ -34,11 +37,11 @@ public class FXClientProxy extends FXCommonProxy{
 		return Minecraft.getMinecraft().theWorld;
 	}
 	
-	public static void spawn(EntityFX fx){
+	public static final void spawn(EntityFX fx){
 		Minecraft mc = Minecraft.getMinecraft();
 		if (mc.renderViewEntity == null)return;
 		
-		if (renderDist == -1 || MathUtil.distanceSquared(mc.renderViewEntity.posX-fx.posX,mc.renderViewEntity.posY-fx.posY,mc.renderViewEntity.posZ-fx.posZ) <= renderDist*renderDist){
+		if (renderDist == -1 || isInRange(fx,renderDist)){
 			if (enableLimiter){
 				if (++amountCheck >= 100){
 					amountCheck = 0;
@@ -54,6 +57,11 @@ public class FXClientProxy extends FXCommonProxy{
 			if (noClip)fx.noClip = true;
 			mc.effectRenderer.addEffect(fx);
 		}
+	}
+	
+	public static final boolean isInRange(EntityFX fx, double dist){ // TODO optimize distant particles
+		Minecraft mc = Minecraft.getMinecraft();
+		return mc.renderViewEntity != null && MathUtil.distanceSquared(mc.renderViewEntity.posX-fx.posX,mc.renderViewEntity.posY-fx.posY,mc.renderViewEntity.posZ-fx.posZ) <= dist*dist;
 	}
 	
 	/*
@@ -108,6 +116,7 @@ public class FXClientProxy extends FXCommonProxy{
 			case "explosion": spawn(new EntityExplodeFX(world(),x,y,z,motionX,motionY,motionZ)); break;
 			case "largeexplosion": spawn(new EntityLargeExplodeFX(Minecraft.getMinecraft().renderEngine,world(),x,y,z,motionX,motionY,motionZ)); break;
 			case "hugeexplosion": spawn(new EntityHugeExplodeFX(world(),x,y,z,motionX,motionY,motionZ)); break;
+			case "aura": spawn(new EntityAuraFX(world(),x,y,z,motionX,motionY,motionZ)); break;
 			case "lava": spawn(new EntityLavaFX(world(),x,y,z)); break;
 			
 			case "magiccrit":
@@ -141,7 +150,7 @@ public class FXClientProxy extends FXCommonProxy{
 	public void global(String particleName, double x, double y, double z, double motionX, double motionY, double motionZ, final float red, final float green, final float blue){
 		switch(particleName){
 			case "portal": spawn(new EntityPortalFX(world(),x,y,z,motionX,motionY,motionZ){{ particleRed = red; particleGreen = green; particleBlue = blue; }}); break;
-			case "energy": spawn(new EntityEnergyClusterFX(world(),x,y,z,red,green,blue,motionX,motionY,motionZ)); break;
+			case "energy": spawn(new EntityEnergyFX(world(),x,y,z,red,green,blue,motionX,motionY,motionZ)); break;
 			case "glitter": spawn(new EntityGlitterFX(world(),x,y,z,motionX,motionY,motionZ,red,green,blue)); break;
 			
 			case "magiccrit":
@@ -221,6 +230,54 @@ public class FXClientProxy extends FXCommonProxy{
 	}
 	
 	@Override
+	public void portalFlyOff(double x, double y, double z, final float scale, final double speedMp){
+		spawn(new EntityBigPortalFX(world(),x,y,z,0D,0D,0D,scale){
+			final ParticleBehaviorFlyOff moveBehavior = new ParticleBehaviorFlyOff(this,speedMp);
+			int age;
+			
+			{ noClip = true; }
+			
+			@Override
+			public void onUpdate(){
+				for(int cycle = 0; cycle < 9; cycle++){
+					moveBehavior.update(this);
+					
+					if (isInRange(this,24D) || rand.nextBoolean()){
+						spawn(new EntityBigPortalFX(worldObj,posX,posY,posZ,(rand.nextDouble()-0.5D)*0.01D,(rand.nextDouble()-0.5D)*0.01D,(rand.nextDouble()-0.5D)*0.01D,scale));
+					}
+					
+					if (!Pos.at(this).isAir(worldObj)){
+						setDead();
+						return;
+					}
+				}
+				
+				if (++age > 4+rand.nextInt(10))setDead();
+			}
+		});
+	}
+
+	@Override
+	public void energy(double x, double y, double z, final double targetX, final double targetY, final double targetZ, float red, float green, float blue, float scale, float speed){
+		spawn(new EntityEnergyFX(world(),x,y,z,red,green,blue,0D,0D,0D,scale){
+			final ParticleBehaviorMoveTo moveBehavior = new ParticleBehaviorMoveTo(this,targetX,targetY,targetZ,speed);
+			
+			{ noClip = true; }
+			
+			@Override
+			public void onUpdate(){ // TODO re-test End Portal Frame animation
+				moveBehavior.update(this);
+			}
+			
+			@Override
+			public void renderParticle(Tessellator tessellator, float partialTickTime, float rotX, float rotXZ, float rotZ, float rotYZ, float rotXY){
+				particleAlpha = 1F;
+				super.renderParticle(tessellator,partialTickTime,rotX,rotXZ,rotZ,rotYZ,rotXY);
+			}
+		});
+	}
+	
+	@Override
 	public void aura(double x, double y, double z, final float red, final float green, final float blue, final int maxAge){
 		spawn(new EntityAuraFX(world(),x,y,z,0D,0D,0D){{
 			particleMaxAge = maxAge;
@@ -245,7 +302,7 @@ public class FXClientProxy extends FXCommonProxy{
 		
 		for(int a = 0; a < 3; a++){
 			double motX = (rand.nextDouble()-rand.nextDouble())*0.0002D, motY = (rand.nextDouble()-rand.nextDouble())*0.0002D, motZ = (rand.nextDouble()-rand.nextDouble())*0.0002D;
-			spawn(new EntityEnergyClusterFX(world(),x,y,z,0.6D,0.2D,1D,motX,motY,motZ,0.015F));
+			spawn(new EntityEnergyFX(world(),x,y,z,0.6F,0.2F,1F,motX,motY,motZ,0.015F));
 		}
 	}
 	
@@ -268,8 +325,7 @@ public class FXClientProxy extends FXCommonProxy{
 	
 	@Override
 	public void energyCluster(TileEntityEnergyCluster cluster){
-		Random rand = cluster.getWorldObj().rand;
-		spawn(new EntityEnergyClusterFX(cluster.getWorldObj(),cluster.xCoord+0.5D+(rand.nextDouble()-rand.nextDouble())*0.1D,cluster.yCoord+0.5D+(rand.nextDouble()-rand.nextDouble())*0.1D,cluster.zCoord+0.5D+(rand.nextDouble()-rand.nextDouble())*0.1D,cluster.getColor(0),cluster.getColor(1),cluster.getColor(2),cluster.getData().get()));
+		spawn(new EntityEnergyFX(cluster.getWorldObj(),cluster));
 	}
 	
 	/*

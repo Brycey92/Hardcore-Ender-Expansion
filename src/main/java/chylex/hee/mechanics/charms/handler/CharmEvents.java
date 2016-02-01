@@ -19,7 +19,6 @@ import net.minecraft.item.ItemFood;
 import net.minecraft.item.ItemStack;
 import net.minecraft.potion.Potion;
 import net.minecraft.potion.PotionEffect;
-import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.DamageSource;
 import net.minecraft.util.MathHelper;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
@@ -32,6 +31,10 @@ import net.minecraftforge.event.world.BlockEvent.BreakEvent;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import chylex.hee.entity.fx.FXType;
+import chylex.hee.entity.mob.teleport.ITeleportPredicate;
+import chylex.hee.entity.mob.teleport.MobTeleporter;
+import chylex.hee.entity.mob.teleport.TeleportLocation.ITeleportXZ;
+import chylex.hee.entity.mob.teleport.TeleportLocation.ITeleportY;
 import chylex.hee.mechanics.charms.CharmPouchInfo;
 import chylex.hee.mechanics.charms.CharmRecipe;
 import chylex.hee.mechanics.charms.CharmType;
@@ -41,10 +44,15 @@ import chylex.hee.packets.client.C07AddPlayerVelocity;
 import chylex.hee.packets.client.C21EffectEntity;
 import chylex.hee.packets.client.C22EffectLine;
 import chylex.hee.system.ReflectionPublicizer;
+import chylex.hee.system.abstractions.Vec;
+import chylex.hee.system.abstractions.entity.EntityAttributes;
+import chylex.hee.system.abstractions.entity.EntityAttributes.Operation;
+import chylex.hee.system.abstractions.entity.EntitySelector;
 import chylex.hee.system.collections.CollectionUtil;
-import chylex.hee.system.util.BlockPosM;
 import chylex.hee.system.util.DragonUtil;
 import chylex.hee.system.util.MathUtil;
+import chylex.hee.system.util.WorldUtil;
+import chylex.hee.system.util.WorldUtil.GameRule;
 import cpw.mods.fml.common.eventhandler.EventPriority;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.TickEvent.Phase;
@@ -94,18 +102,27 @@ public final class CharmEvents{
 	private final TObjectFloatHashMap<UUID> playerStealDealtDamage = new TObjectFloatHashMap<>();
 	private final TObjectByteHashMap<UUID> playerLastResortCooldown = new TObjectByteHashMap<>();
 	
-	private final AttributeModifier attrSpeed = new AttributeModifier(UUID.fromString("91AEAA56-376B-4498-935B-2F7F68070635"),"HeeCharmSpeed",0.15D,2);
+	private final AttributeModifier speedModifier = EntityAttributes.createModifier("Charm speed",Operation.MULTIPLY,1.15D);
+	private final MobTeleporter<EntityPlayer> lastResortTeleporter = new MobTeleporter<>();
 	
-	CharmEvents(){}
+	CharmEvents(){
+		lastResortTeleporter.setAttempts(128);
+		lastResortTeleporter.addLocationPredicate(ITeleportPredicate.airAboveSolid(2));
+		
+		lastResortTeleporter.onTeleport((entity, startPos, rand) -> {
+			PacketPipeline.sendToAllAround(entity.dimension,startPos.x,startPos.y,startPos.z,64D,new C21EffectEntity(FXType.Entity.CHARM_LAST_RESORT,startPos.x,startPos.y,startPos.z,entity.width,entity.height));
+			entity.setPositionAndUpdate(entity.posX,entity.posY+0.01D,entity.posZ);
+		});
+	}
 	
 	public void onDisabled(){
 		if (!playerSpeed.isEmpty()){
-			for(EntityPlayerMP player:(List<EntityPlayerMP>)MinecraftServer.getServer().getConfigurationManager().playerEntityList){
+			for(EntityPlayerMP player:EntitySelector.players()){
 				UUID id = player.getGameProfile().getId();
 				
 				if (playerSpeed.containsKey(id)){
 					IAttributeInstance attribute = player.getAttributeMap().getAttributeInstance(SharedMonsterAttributes.movementSpeed);
-					if (attribute != null)attribute.removeModifier(attrSpeed);
+					if (attribute != null)attribute.removeModifier(speedModifier);
 				}
 			}
 		}
@@ -138,8 +155,8 @@ public final class CharmEvents{
 				IAttributeInstance attribute = e.player.getAttributeMap().getAttributeInstance(SharedMonsterAttributes.movementSpeed);
 				
 				if (attribute != null){
-					attribute.removeModifier(attrSpeed);
-					attribute.applyModifier(new AttributeModifier(attrSpeed.getID(),attrSpeed.getName()+spd,attrSpeed.getAmount()*spd,attrSpeed.getOperation()));
+					attribute.removeModifier(speedModifier);
+					attribute.applyModifier(new AttributeModifier(speedModifier.getID(),speedModifier.getName()+spd,speedModifier.getAmount()*spd,speedModifier.getOperation()));
 				}
 				
 				playerSpeed.put(playerID,spd);
@@ -274,17 +291,15 @@ public final class CharmEvents{
 						float mp = 0.5F+0.8F*repulseAmt;
 						Entity source = e.source.getEntity();
 						
-						double[] vec = DragonUtil.getNormalizedVector(source.posX-targetPlayer.posX,source.posZ-targetPlayer.posZ);
-						vec[0] *= mp;
-						vec[1] *= mp;
+						Vec vec = Vec.between(targetPlayer,source).normalized().multiplied(mp);
 						
 						if (source instanceof EntityPlayer){
-							PacketPipeline.sendToPlayer((EntityPlayer)source,new C07AddPlayerVelocity(vec[0],0.25D,vec[1]));
-							source.motionX += vec[0];
+							PacketPipeline.sendToPlayer((EntityPlayer)source,new C07AddPlayerVelocity(vec.x,0.25D,vec.z));
+							source.motionX += vec.x;
 							source.motionY += 0.25D;
-							source.motionZ += vec[1];
+							source.motionZ += vec.z;
 						}
-						else source.addVelocity(vec[0],0.25D,vec[1]);
+						else source.addVelocity(vec.x,0.25D,vec.z);
 						
 						showBlockingEffect = true;
 					}
@@ -298,7 +313,7 @@ public final class CharmEvents{
 				
 				if (redirMobs.length > 0){
 					float[] redirAmt = getProp(targetPlayer,"rediramt");
-					List<EntityLivingBase> nearbyEntities = e.entity.worldObj.getEntitiesWithinAABB(EntityLivingBase.class,targetPlayer.boundingBox.expand(6D,3D,6D));
+					List<EntityLivingBase> nearbyEntities = EntitySelector.living(e.entity.worldObj,targetPlayer.boundingBox.expand(6D,3D,6D));
 					Iterator<EntityLivingBase> iter = nearbyEntities.iterator();
 					
 					for(int a = 0; a < redirMobs.length; a++){
@@ -349,26 +364,15 @@ public final class CharmEvents{
 			float[] lastResortCooldown = getProp(targetPlayer,"lastresortcooldown");
 			
 			if (lastResortCooldown.length > 0 && !playerLastResortCooldown.containsKey(targetPlayer.getGameProfile().getId())){
-				float[] lastResortDist = getProp(targetPlayer,"lastresortblocks");
-				int randIndex = targetPlayer.worldObj.rand.nextInt(lastResortCooldown.length);
-				BlockPosM tmpPos = BlockPosM.tmp();
+				final float[] lastResortDist = getProp(targetPlayer,"lastresortblocks");
+				final int randIndex = targetPlayer.worldObj.rand.nextInt(lastResortCooldown.length);
 				
-				for(int attempt = 0; attempt < 128; attempt++){
-					float ang = targetPlayer.worldObj.rand.nextFloat()*2F*(float)Math.PI;
-					
-					tmpPos.x = MathUtil.floor(targetPlayer.posX+MathHelper.cos(ang)*lastResortDist[randIndex]);
-					tmpPos.y = MathUtil.floor(targetPlayer.posY)-2;
-					tmpPos.z = MathUtil.floor(targetPlayer.posZ+MathHelper.sin(ang)*lastResortDist[randIndex]);
-					
-					for(int yAttempt = 0, origY = tmpPos.y; yAttempt <= 6; yAttempt++){
-						if (!tmpPos.setY(origY-1).isAir(targetPlayer.worldObj) && tmpPos.setY(origY).isAir(targetPlayer.worldObj) && tmpPos.setY(origY+1).isAir(targetPlayer.worldObj)){
-							PacketPipeline.sendToAllAround(targetPlayer,64D,new C21EffectEntity(FXType.Entity.CHARM_LAST_RESORT,targetPlayer));
-							targetPlayer.setPositionAndUpdate(tmpPos.x+0.5D,tmpPos.y+0.01D,tmpPos.z+0.5D);
-							attempt = 129;
-							break;
-						}
-					}
-				}
+				lastResortTeleporter.setLocationSelector(
+					ITeleportXZ.exactDistance(lastResortDist[randIndex]),
+					ITeleportY.findSolidBottom((entity, startPos, rand) -> MathUtil.floor(startPos.y)-2,-6)
+				);
+				
+				lastResortTeleporter.teleport(targetPlayer,targetPlayer.worldObj.rand);
 				
 				targetPlayer.setHealth(targetPlayer.prevHealth);
 				targetPlayer.motionX = targetPlayer.motionY = targetPlayer.motionZ = 0D;
@@ -392,9 +396,7 @@ public final class CharmEvents{
 				float lastDamage = e.entityLiving.lastDamage;
 				
 				for(int a = 0; a < impactRad.length; a++){
-					List<EntityLivingBase> entities = e.entity.worldObj.getEntitiesWithinAABB(EntityLivingBase.class,e.entity.boundingBox.expand(impactRad[a],impactRad[a],impactRad[a]));
-					
-					for(EntityLivingBase entity:entities){
+					for(EntityLivingBase entity:EntitySelector.living(e.entity.worldObj,e.entity.boundingBox.expand(impactRad[a],impactRad[a],impactRad[a]))){
 						if (entity == sourcePlayer || entity == e.entity)continue;
 						if (entity.getDistanceToEntity(e.entity) <= impactRad[a]){
 							entity.attackEntityFrom(DamageSource.generic,impactAmt[a]*lastDamage);
@@ -413,9 +415,9 @@ public final class CharmEvents{
 	@SubscribeEvent(priority = EventPriority.LOWEST)
 	public void onLivingDrops(LivingDropsEvent e){
 		if (e.recentlyHit && e.source.getEntity() instanceof EntityPlayer && e.entityLiving instanceof EntityLiving &&
-			!e.entityLiving.isChild() && e.entity.worldObj.getGameRules().getGameRuleBooleanValue("doMobLoot")){
+			!e.entityLiving.isChild() && WorldUtil.getRuleBool(e.entity.worldObj,GameRule.DO_MOB_LOOT)){
 			// BASIC_MAGIC / EQUALITY
-			int xp = (int)ReflectionPublicizer.invoke(ReflectionPublicizer.entityLivingBaseGetExperiencePoints,e.entityLiving,(EntityPlayer)e.source.getEntity());
+			int xp = ReflectionPublicizer.m__getExperiencePoints__EntityLivingBase(e.entityLiving,(EntityPlayer)e.source.getEntity());
 			xp = MathUtil.ceil(getPropPercentIncrease((EntityPlayer)e.source.getEntity(),"exp",xp)); // extra xp only
 			DragonUtil.spawnXP(e.entity,xp);
 		}
@@ -437,7 +439,7 @@ public final class CharmEvents{
 	 */
 	@SubscribeEvent(priority = EventPriority.LOWEST)
 	public void onItemDestroyed(PlayerDestroyItemEvent e){
-		if (e.entity.worldObj.isRemote)return;
+		if (e.entity == null || e.entity.worldObj == null || e.entity.worldObj.isRemote)return; // NPE checks for some Thaumcraft bullshit
 		
 		// SECOND_DURABILITY
 		if (e.original.isItemStackDamageable() && e.original.getItem().isRepairable()){

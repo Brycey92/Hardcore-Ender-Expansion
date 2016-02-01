@@ -5,7 +5,6 @@ import java.util.List;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityFlying;
 import net.minecraft.entity.EntityLivingBase;
-import net.minecraft.entity.SharedMonsterAttributes;
 import net.minecraft.entity.boss.IBossDisplayData;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
@@ -21,7 +20,6 @@ import chylex.hee.entity.GlobalMobData.IIgnoreEnderGoo;
 import chylex.hee.entity.RandomNameGenerator;
 import chylex.hee.entity.fx.FXType;
 import chylex.hee.entity.mob.EntityMobFireGolem;
-import chylex.hee.entity.mob.util.DamageSourceMobUnscaled;
 import chylex.hee.entity.projectile.EntityProjectileFiendFireball;
 import chylex.hee.init.ItemList;
 import chylex.hee.mechanics.essence.EssenceType;
@@ -29,14 +27,20 @@ import chylex.hee.packets.PacketPipeline;
 import chylex.hee.packets.client.C20Effect;
 import chylex.hee.packets.client.C22EffectLine;
 import chylex.hee.proxy.ModCommonProxy;
+import chylex.hee.system.abstractions.Pos.PosMutable;
+import chylex.hee.system.abstractions.Vec;
+import chylex.hee.system.abstractions.entity.EntityAttributes;
+import chylex.hee.system.abstractions.entity.EntityDataWatcher;
+import chylex.hee.system.abstractions.entity.EntitySelector;
 import chylex.hee.system.collections.CollectionUtil;
-import chylex.hee.system.util.BlockPosM;
-import chylex.hee.system.util.DragonUtil;
 import chylex.hee.system.util.MathUtil;
 
 public class EntityMiniBossFireFiend extends EntityFlying implements IBossDisplayData, IIgnoreEnderGoo{
+	private enum Data{ ATTACK, ANGRY }
+	
 	private static final byte ATTACK_NONE = 0, ATTACK_FIREBALLS = 1, ATTACK_FLAMES = 2;
 	
+	private EntityDataWatcher entityData;
 	private boolean isAngry;
 	private byte timer, currentAttack = ATTACK_NONE, prevAttack = ATTACK_NONE;
 	private final List<EntityProjectileFiendFireball> controlledFireballs = new ArrayList<>(8);
@@ -61,15 +65,16 @@ public class EntityMiniBossFireFiend extends EntityFlying implements IBossDispla
 	@Override
 	protected void entityInit(){
 		super.entityInit();
-		dataWatcher.addObject(16,Byte.valueOf((byte)0));
-		dataWatcher.addObject(17,Byte.valueOf((byte)0));
+		entityData = new EntityDataWatcher(this);
+		entityData.addByte(Data.ATTACK);
+		entityData.addBoolean(Data.ANGRY);
 	}
 	
 	@Override
 	protected void applyEntityAttributes(){
 		super.applyEntityAttributes();
-		getEntityAttribute(SharedMonsterAttributes.maxHealth).setBaseValue(ModCommonProxy.opMobs ? 380D : 300D);
-		getEntityAttribute(SharedMonsterAttributes.movementSpeed).setBaseValue(1.8D);
+		EntityAttributes.setValue(this,EntityAttributes.maxHealth,ModCommonProxy.opMobs ? 380D : 300D);
+		EntityAttributes.setValue(this,EntityAttributes.movementSpeed,1.8D);
 	}
 	
 	@Override
@@ -77,14 +82,14 @@ public class EntityMiniBossFireFiend extends EntityFlying implements IBossDispla
 		super.onLivingUpdate();
 		
 		if (worldObj.isRemote){
-			byte attack = dataWatcher.getWatchableObjectByte(16);
+			byte attack = entityData.getByte(Data.ATTACK);
 			
 			if (attack == ATTACK_FLAMES){
 				for(int a = 0; a < 5; a++)HardcoreEnderExpansion.fx.flame(posX+((rand.nextDouble()-0.5D)*rand.nextDouble())*width,posY+rand.nextDouble()*height,posZ+((rand.nextDouble()-0.5D)*rand.nextDouble())*width,8);
 			}
 			else timer = 0;
 			
-			if (!isAngry && dataWatcher.getWatchableObjectByte(17) == 1)isAngry = true;
+			if (!isAngry && entityData.getBoolean(Data.ANGRY))isAngry = true;
 			
 			if (isAngry){
 				for(int a = 0; a < 2; a++)HardcoreEnderExpansion.fx.flame(posX+((rand.nextDouble()-0.5D)*rand.nextDouble())*width,posY+rand.nextDouble()*height,posZ+((rand.nextDouble()-0.5D)*rand.nextDouble())*width,12);
@@ -103,10 +108,10 @@ public class EntityMiniBossFireFiend extends EntityFlying implements IBossDispla
 		rotationPitch = MathUtil.toDeg((float)Math.atan2(posY-(closest.posY+closest.getEyeHeight()),MathUtil.distance(posX-closest.posX,posZ-closest.posZ)));
 		
 		double targetYDiff = posY-(closest.posY+9D);
-		BlockPosM tmpPos = BlockPosM.tmp(this);
+		PosMutable mpos = new PosMutable().set(this);
 		
 		for(int a = 1; a <= 7; a += 2){
-			if (!tmpPos.moveDown().moveDown().isAir(worldObj)){
+			if (!mpos.moveDown().moveDown().isAir(worldObj)){
 				targetYDiff = -1.5D;
 				break;
 			}
@@ -121,9 +126,10 @@ public class EntityMiniBossFireFiend extends EntityFlying implements IBossDispla
 		}
 		
 		targetAngle += (targetAngleChangeDir ? 1 : -1)*0.02F;
-		double[] vec = DragonUtil.getNormalizedVector((closest.posX+MathHelper.cos(targetAngle)*40D)-posX+(rand.nextDouble()-0.5D)*4D,(closest.posZ+MathHelper.sin(targetAngle)*40D)-posZ+(rand.nextDouble()-0.5D)*4D);
-		motionVec.xCoord = vec[0]*0.5D;
-		motionVec.zCoord = vec[1]*0.5D;
+		Vec vec = Vec.xz((closest.posX+MathHelper.cos(targetAngle)*40D)-posX+(rand.nextDouble()-0.5D)*4D,(closest.posZ+MathHelper.sin(targetAngle)*40D)-posZ+(rand.nextDouble()-0.5D)*4D);
+		vec = vec.normalized().multiplied(0.5D);
+		motionVec.xCoord = vec.x;
+		motionVec.zCoord = vec.z;
 		
 		motionX = motionVec.xCoord*0.1D+motionX*0.9D;
 		motionZ = motionVec.zCoord*0.1D+motionZ*0.9D;
@@ -135,7 +141,7 @@ public class EntityMiniBossFireFiend extends EntityFlying implements IBossDispla
 				if (isAngry && worldObj.difficultySetting != EnumDifficulty.PEACEFUL && rand.nextInt(5) == 0){
 					for(EntityPlayer player:getNearbyPlayers()){
 						int targeted = 0;
-						List<EntityMobFireGolem> golems = worldObj.getEntitiesWithinAABB(EntityMobFireGolem.class,player.boundingBox.expand(32D,32D,32D));
+						List<EntityMobFireGolem> golems = EntitySelector.type(worldObj,EntityMobFireGolem.class,player.boundingBox.expand(32D,32D,32D));
 						
 						for(EntityMobFireGolem golem:golems){
 							if (golem.getEntityToAttack() == player && ++targeted >= 2)break;
@@ -143,7 +149,7 @@ public class EntityMiniBossFireFiend extends EntityFlying implements IBossDispla
 						
 						if (targeted >= 2)continue;
 						
-						golems = worldObj.getEntitiesWithinAABB(EntityMobFireGolem.class,player.boundingBox.expand(16D,16D,16D));
+						golems = EntitySelector.type(worldObj,EntityMobFireGolem.class,player.boundingBox.expand(16D,16D,16D));
 						if (golems.isEmpty())continue;
 						
 						for(int attempt = 0, called = ModCommonProxy.opMobs ? 3 : 2; attempt < 3 && !golems.isEmpty() && called > 0; attempt++){
@@ -163,7 +169,7 @@ public class EntityMiniBossFireFiend extends EntityFlying implements IBossDispla
 				if (!hasCalledGolems){
 					currentAttack = rand.nextInt(3) != 0 ? ATTACK_FIREBALLS : ATTACK_FLAMES;
 					if (currentAttack == ATTACK_FLAMES && prevAttack == ATTACK_FLAMES)currentAttack = ATTACK_FIREBALLS;
-					dataWatcher.updateObject(16,currentAttack);
+					entityData.setByte(Data.ATTACK,currentAttack);
 					prevAttack = currentAttack;
 					timer = 0;
 				}
@@ -181,7 +187,7 @@ public class EntityMiniBossFireFiend extends EntityFlying implements IBossDispla
 				}
 			}
 			else if (timer >= (amt+2)*speed){
-				dataWatcher.updateObject(16,currentAttack = ATTACK_NONE);
+				entityData.setByte(Data.ATTACK,currentAttack = ATTACK_NONE);
 				timer = 0;
 				controlledFireballs.clear();
 			}else if (timer >= 2){
@@ -197,20 +203,20 @@ public class EntityMiniBossFireFiend extends EntityFlying implements IBossDispla
 				
 				for(EntityPlayer player:getNearbyPlayers()){
 					player.setFire(fireLength);
-					player.attackEntityFrom(new DamageSourceMobUnscaled(this),DamageSourceMobUnscaled.getDamage(ModCommonProxy.opMobs ? 12F : 8F,worldObj.difficultySetting));
+					// TODO player.attackEntityFrom(new DamageSourceMobUnscaled(this),DamageSourceMobUnscaled.getDamage(ModCommonProxy.opMobs ? 12F : 8F,worldObj.difficultySetting));
 					PacketPipeline.sendToAllAround(player,64D,new C20Effect(FXType.Basic.FIRE_FIEND_FLAME_ATTACK,player));
 				}
 				
 				timer = 0;
-				dataWatcher.updateObject(16,currentAttack = ATTACK_NONE);
+				entityData.setByte(Data.ATTACK,currentAttack = ATTACK_NONE);
 			}
 		}
 		
-		for(EntityLivingBase e:(List<EntityLivingBase>)worldObj.getEntitiesWithinAABB(EntityLivingBase.class,boundingBox.expand(0.8D,1.65D,0.8D))){
+		for(EntityLivingBase e:EntitySelector.living(worldObj,boundingBox.expand(0.8D,1.65D,0.8D))){
 			if (e == this || e.isImmuneToFire())continue;
 			e.setFire(2+rand.nextInt(4));
 			e.hurtResistantTime = 0;
-			e.attackEntityFrom(new DamageSourceMobUnscaled(this),ModCommonProxy.opMobs ? 9F : 5F);
+			// TODO e.attackEntityFrom(new DamageSourceMobUnscaled(this),ModCommonProxy.opMobs ? 9F : 5F);
 			e.hurtResistantTime = 7;
 		}
 		
@@ -225,7 +231,7 @@ public class EntityMiniBossFireFiend extends EntityFlying implements IBossDispla
 	}
 	
 	private List<EntityPlayer> getNearbyPlayers(){
-		List<EntityPlayer> allNearby = worldObj.getEntitiesWithinAABB(EntityPlayer.class,boundingBox.expand(164D,164D,164D));
+		List<EntityPlayer> allNearby = EntitySelector.players(worldObj,boundingBox.expand(164D,164D,164D));
 		
 		for(Iterator<EntityPlayer> iter = allNearby.iterator(); iter.hasNext();){
 			EntityPlayer player = iter.next();
@@ -248,7 +254,7 @@ public class EntityMiniBossFireFiend extends EntityFlying implements IBossDispla
 		
 		if (getHealth() <= getMaxHealth()*0.4F){
 			isAngry = true;
-			dataWatcher.updateObject(17,Byte.valueOf((byte)1));
+			entityData.setBoolean(Data.ANGRY,true);
 		}
 	}
 	
@@ -299,7 +305,7 @@ public class EntityMiniBossFireFiend extends EntityFlying implements IBossDispla
 	@Override
 	public void readEntityFromNBT(NBTTagCompound nbt){
 		super.readEntityFromNBT(nbt);
-		if ((isAngry = nbt.getBoolean("isAngry")) == true)dataWatcher.updateObject(17,Byte.valueOf((byte)1));
+		if ((isAngry = nbt.getBoolean("isAngry")) == true)entityData.setBoolean(Data.ANGRY,true);
 	}
 	
 	@Override

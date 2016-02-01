@@ -1,18 +1,20 @@
 package chylex.hee.world.feature.stronghold.rooms.general;
 import java.util.Random;
 import net.minecraft.init.Blocks;
+import chylex.hee.entity.technical.EntityTechnicalSpawner;
 import chylex.hee.init.BlockList;
 import chylex.hee.system.abstractions.BlockInfo;
 import chylex.hee.system.abstractions.Meta;
 import chylex.hee.system.abstractions.Pos.PosMutable;
 import chylex.hee.system.abstractions.facing.Facing4;
 import chylex.hee.world.feature.stronghold.StrongholdPiece;
+import chylex.hee.world.feature.stronghold.StrongholdSilverfishSpawner;
 import chylex.hee.world.structure.StructureWorld;
 import chylex.hee.world.structure.dungeon.StructureDungeonPieceInst;
 import chylex.hee.world.structure.util.IBlockPicker;
 import chylex.hee.world.util.Size;
 
-public class StrongholdRoomEndPortal extends StrongholdPiece{ // TODO maybe add stairs to upper level
+public class StrongholdRoomEndPortal extends StrongholdPiece{
 	public StrongholdRoomEndPortal(){
 		super(Type.ROOM,new Size(19,13,19));
 		
@@ -29,7 +31,7 @@ public class StrongholdRoomEndPortal extends StrongholdPiece{ // TODO maybe add 
 	@Override
 	public void generate(StructureDungeonPieceInst inst, StructureWorld world, Random rand, final int x, final int y, final int z){
 		final int centerX = x+maxX/2, centerZ = z+maxZ/2;
-		PosMutable mpos = new PosMutable(); // TODO lava behind bars
+		PosMutable mpos = new PosMutable();
 		
 		// box
 		placeCube(world,rand,placeStoneBrick,x,y+maxY,z,x+maxX,y+maxY,z+maxZ); // ceiling
@@ -54,7 +56,7 @@ public class StrongholdRoomEndPortal extends StrongholdPiece{ // TODO maybe add 
 				// slabs in portal corners
 				placeBlock(world,rand,placeSlabBottom,x+7+4*cornerX,y,z+7+4*cornerZ);
 				// walls in corners
-				placeLine(world,rand,IBlockPicker.basic(BlockList.stone_brick_wall),x+3+12*cornerX,y+1,z+3+12*cornerZ,x+3+12*cornerX,y+5,z+3+12*cornerZ);
+				placeLine(world,rand,placeStoneBrickWall,x+3+12*cornerX,y+1,z+3+12*cornerZ,x+3+12*cornerX,y+5,z+3+12*cornerZ);
 			}
 		}
 		
@@ -114,16 +116,29 @@ public class StrongholdRoomEndPortal extends StrongholdPiece{ // TODO maybe add 
 			}
 			
 			mpos.move(perpendicular,4);
-			placeCube(world,rand,placeAir,mpos.x-perX,y+1,mpos.z-perZ,mpos.x+perX,y+3,mpos.z+perZ); // bottom windows
+			placeCube(world,rand,placeLava,mpos.x-perX,y+1,mpos.z-perZ,mpos.x+perX,y+3,mpos.z+perZ); // bottom windows
 			mpos.move(facing,-1);
 			placeBlock(world,rand,random -> new BlockInfo(Blocks.iron_bars),mpos.x,y+2,mpos.z); // iron bar
 			mpos.move(facing,1);
 			
 			mpos.move(perpendicular,-8);
-			placeCube(world,rand,placeAir,mpos.x-perX,y+1,mpos.z-perZ,mpos.x+perX,y+3,mpos.z+perZ); // bottom windows
+			placeCube(world,rand,placeLava,mpos.x-perX,y+1,mpos.z-perZ,mpos.x+perX,y+3,mpos.z+perZ); // bottom windows
 			mpos.move(facing,-1);
 			placeBlock(world,rand,random -> new BlockInfo(Blocks.iron_bars),mpos.x,y+2,mpos.z); // iron bar
 			mpos.move(facing,1);
 		}
+		
+		// global silverfish spawner
+		world.addEntity(new EntityTechnicalSpawner(null,0D,0D,0D,new StrongholdSilverfishSpawner()));
+	}
+	
+	@Override
+	protected float getWeightFactor(){
+		return 1.75F;
+	}
+	
+	@Override
+	protected float getWeightMultiplier(){
+		return 3F;
 	}
 }

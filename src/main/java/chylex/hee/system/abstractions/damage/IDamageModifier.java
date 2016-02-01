@@ -15,8 +15,9 @@ import net.minecraft.util.DamageSource;
 import net.minecraft.world.EnumDifficulty;
 import chylex.hee.packets.PacketPipeline;
 import chylex.hee.packets.client.C06SetPlayerVelocity;
-import chylex.hee.system.util.DragonUtil;
+import chylex.hee.system.abstractions.Vec;
 import chylex.hee.system.util.MathUtil;
+import chylex.hee.system.util.RandUtil;
 
 @FunctionalInterface
 public interface IDamageModifier{
@@ -42,8 +43,8 @@ public interface IDamageModifier{
 						
 						if (armorIS.length > 0){
 							int damage = MathUtil.ceil(finalAmount*0.33F);
-							armorIS[target.worldObj.rand.nextInt(armorIS.length)].damageItem(damage,(EntityPlayer)target);
-							armorIS[target.worldObj.rand.nextInt(armorIS.length)].damageItem(damage,(EntityPlayer)target);
+							RandUtil.anyOf(target.worldObj.rand,armorIS).damageItem(damage,(EntityPlayer)target);
+							RandUtil.anyOf(target.worldObj.rand,armorIS).damageItem(damage,(EntityPlayer)target);
 						}
 					}
 				});
@@ -54,6 +55,7 @@ public interface IDamageModifier{
 		
 		magicDamage = (amount, target, source, postProcessors) -> {
 			source.setMagicDamage();
+			source.damageType = "magic";
 			return amount;
 		},
 		
@@ -73,7 +75,7 @@ public interface IDamageModifier{
 					}).toArray(ItemStack[]::new);
 					
 					if (enchArmor.length > 0){
-						enchArmor[target.worldObj.rand.nextInt(enchArmor.length)].damageItem(1,(EntityPlayer)target);
+						RandUtil.anyOf(target.worldObj.rand,enchArmor).damageItem(1,(EntityPlayer)target);
 					}
 				}
 			}
@@ -108,8 +110,17 @@ public interface IDamageModifier{
 			}
 		},
 		
+		blocking = (amount, target, source, postProcessors) -> {
+			return amount; // TODO
+		},
+		
 		thorns = (amount, target, source, postProcessors) -> {
 			return amount; // TODO
+		},
+		
+		dealCreative = (amount, target, source, postProcessors) -> {
+			source.setDamageAllowedInCreativeMode();
+			return amount;
 		};
 	
 	public static IDamageModifier rapidDamage(final int decreaseBy){
@@ -133,11 +144,11 @@ public interface IDamageModifier{
 				final double motX = livingTarget.motionX, motY = livingTarget.motionY, motZ = livingTarget.motionZ;
 				
 				postProcessors.add(finalAmount -> {
-					double[] vec = DragonUtil.getNormalizedVector(target.posX-sourceEntity.posX,target.posZ-sourceEntity.posZ);
+					Vec vec = Vec.xz(target.posX-sourceEntity.posX,target.posZ-sourceEntity.posZ).normalized();
 					
-					target.motionX = motX+vec[0]*0.5D*multiplier;
+					target.motionX = motX+vec.x*0.5D*multiplier;
 					target.motionY = motY+(MathUtil.floatEquals(multiplier,0F) ? 0F : multiplier < 1F ? 0.25D+0.15D*multiplier : 0.4D+0.1D*multiplier);
-					target.motionZ = motZ+vec[1]*0.5D*multiplier;
+					target.motionZ = motZ+vec.z*0.5D*multiplier;
 					if (target instanceof EntityPlayer)PacketPipeline.sendToPlayer((EntityPlayer)target,new C06SetPlayerVelocity(target.motionX,target.motionY,target.motionZ));
 					
 					sourceEntity.motionX *= 0.6D;

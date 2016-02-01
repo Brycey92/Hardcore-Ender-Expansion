@@ -1,26 +1,5 @@
 package chylex.hee.entity.mob;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityFlying;
-import net.minecraft.entity.SharedMonsterAttributes;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.util.AxisAlignedBB;
-import net.minecraft.util.DamageSource;
-import net.minecraft.util.Vec3;
-import net.minecraft.world.World;
-import chylex.hee.HardcoreEnderExpansion;
-import chylex.hee.entity.fx.FXType;
-import chylex.hee.packets.PacketPipeline;
-import chylex.hee.packets.client.C07AddPlayerVelocity;
-import chylex.hee.packets.client.C21EffectEntity;
-import chylex.hee.packets.client.C22EffectLine;
-import chylex.hee.system.util.BlockPosM;
-import chylex.hee.system.util.DragonUtil;
-import chylex.hee.system.util.MathUtil;
-
+/*
 public class EntityMobSanctuaryOverseer extends EntityFlying{
 	private Map<UUID,double[]> prevPlayerLocs = new HashMap<>();
 	private short provocation, maxProvocation;
@@ -42,7 +21,7 @@ public class EntityMobSanctuaryOverseer extends EntityFlying{
 	@Override
 	protected void applyEntityAttributes(){
 		super.applyEntityAttributes();
-		getEntityAttribute(SharedMonsterAttributes.maxHealth).setBaseValue(18D+rand.nextDouble()*29D);
+		EntityAttributes.setValue(this,EntityAttributes.maxHealth,18D+rand.nextDouble()*29D);
 	}
 	
 	@Override
@@ -70,9 +49,9 @@ public class EntityMobSanctuaryOverseer extends EntityFlying{
 					if (attackTimer > 0 && attackingPlayer != null){
 						// TODO MultiDamage.from(this).addMagic(7F).addScaled(ModCommonProxy.opMobs ? 29F : 24F).attack(attackingPlayer);
 						
-						double[] vec = DragonUtil.getNormalizedVector(attackingPlayer.posX-posX,attackingPlayer.posZ-posZ);
-						attackingPlayer.addVelocity(vec[0],0.2D,vec[1]);
-						PacketPipeline.sendToPlayer(attackingPlayer,new C07AddPlayerVelocity(vec[0],0.2D,vec[1]));
+						Vec vec = Vec.between(this,attackingPlayer).normalized();
+						attackingPlayer.addVelocity(vec.x,0.2D,vec.z);
+						PacketPipeline.sendToPlayer(attackingPlayer,new C07AddPlayerVelocity(vec.x,0.2D,vec.z));
 						
 						PacketPipeline.sendToAllAround(this,10D,new C21EffectEntity(FXType.Entity.SANCTUARY_OVERSEER_SINGLE,this));
 					}
@@ -179,4 +158,5 @@ public class EntityMobSanctuaryOverseer extends EntityFlying{
 			setDead();
 		}
 	}
-}
+}*/
+

@@ -1,7 +1,7 @@
 package chylex.hee.system.abstractions;
 import java.util.Optional;
 import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.function.Predicate;
 import net.minecraft.block.Block;
 import net.minecraft.block.material.Material;
 import net.minecraft.entity.Entity;
@@ -10,6 +10,7 @@ import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.MovingObjectPosition;
 import net.minecraft.util.MovingObjectPosition.MovingObjectType;
+import net.minecraft.util.Vec3;
 import net.minecraft.world.IBlockAccess;
 import net.minecraft.world.World;
 import chylex.hee.system.abstractions.facing.Facing6;
@@ -42,6 +43,10 @@ public class Pos{
 		return new Pos(tile.xCoord,tile.yCoord,tile.zCoord);
 	}
 	
+	public static Pos at(Vec3 vec){
+		return new Pos(MathUtil.floor(vec.xCoord),MathUtil.floor(vec.yCoord),MathUtil.floor(vec.zCoord));
+	}
+	
 	public static Pos at(MovingObjectPosition mop){
 		return mop.typeOfHit == MovingObjectType.BLOCK ? new Pos(mop.blockX,mop.blockY,mop.blockZ) : mop.typeOfHit == MovingObjectType.ENTITY ? at(mop.entityHit) : at(0,0,0);
 	}
@@ -71,6 +76,27 @@ public class Pos{
 	}
 	
 	/**
+	 * Runs a predicate for every block inside the specified locations, and returns true if all blocks match it.
+	 * When any block fails the predicate, the function immediately returns false and stop checking any further blocks.
+	 */
+	public static boolean allBlocksMatch(Pos firstPos, Pos secondPos, Predicate<PosMutable> predicate){
+		int x1 = Math.min(firstPos.getX(),secondPos.getX()), x2 = Math.max(firstPos.getX(),secondPos.getX());
+		int y1 = Math.min(firstPos.getY(),secondPos.getY()), y2 = Math.max(firstPos.getY(),secondPos.getY());
+		int z1 = Math.min(firstPos.getZ(),secondPos.getZ()), z2 = Math.max(firstPos.getZ(),secondPos.getZ());
+		PosMutable mutablePos = new PosMutable();
+		
+		for(int x = x1; x <= x2; x++){
+			for(int y = y1; y <= y2; y++){
+				for(int z = z1; z <= z2; z++){
+					if (!predicate.test(mutablePos.set(x,y,z)))return false;
+				}
+			}
+		}
+		
+		return true;
+	}
+	
+	/**
 	 * Returns a bounding box containing all blocks between the specified locations (the edge is extended).
 	 */
 	public static AxisAlignedBB getBoundingBox(Pos loc1, Pos loc2){
@@ -96,16 +122,16 @@ public class Pos{
 	/**
 	 * Finds the first block from the top for which the check function returns true.
 	 */
-	public static Pos getTopBlock(World world, int x, int z, Function<BlockInfo,Boolean> checkFunc){
+	public static Pos getTopBlock(World world, int x, int z, Predicate<BlockInfo> checkFunc){
 		return getTopBlock(world,x,z,world.getHeight(),checkFunc);
 	}
 	
 	/**
 	 * Finds the first block from the top for which the check function returns true.
 	 */
-	public static Pos getTopBlock(World world, int x, int z, int startY, Function<BlockInfo,Boolean> checkFunc){
+	public static Pos getTopBlock(World world, int x, int z, int startY, Predicate<BlockInfo> checkFunc){
 		PosMutable mpos = new PosMutable(x,startY,z);
-		while(!checkFunc.apply(mpos.getInfo(world)) && --mpos.y >= 0);
+		while(!checkFunc.test(mpos.getInfo(world)) && --mpos.y >= 0);
 		return mpos.immutable();
 	}
 	
@@ -143,6 +169,10 @@ public class Pos{
 	
 	public Pos offset(int x, int y, int z){
 		return new Pos(getX()+x,getY()+y,getZ()+z);
+	}
+	
+	public Pos offset(Pos by){
+		return new Pos(getX()+by.getX(),getY()+by.getY(),getZ()+by.getZ());
 	}
 	
 	public Pos offset(int side){
@@ -209,6 +239,22 @@ public class Pos{
 	
 	public double distance(TileEntity tile){
 		return MathUtil.distance(tile.xCoord-getX(),tile.yCoord-getY(),tile.zCoord-getZ());
+	}
+	
+	public double distanceSquared(int x, int y, int z){
+		return MathUtil.distanceSquared(x-getX(),y-getY(),z-getZ());
+	}
+	
+	public double distanceSquared(Pos pos){
+		return MathUtil.distanceSquared(pos.getX()-getX(),pos.getY()-getY(),pos.getZ()-getZ());
+	}
+	
+	public double distanceSquared(Entity entity){
+		return MathUtil.distanceSquared(entity.posX-(getX()+0.5D),entity.posY-(getY()+0.5D),entity.posZ-(getZ()+0.5D));
+	}
+	
+	public double distanceSquared(TileEntity tile){
+		return MathUtil.distanceSquared(tile.xCoord-getX(),tile.yCoord-getY(),tile.zCoord-getZ());
 	}
 	
 	/* === WORLD === */
@@ -418,6 +464,11 @@ public class Pos{
 		
 		public PosMutable moveUp(){
 			++y;
+			return this;
+		}
+		
+		public PosMutable moveDown(){
+			--y;
 			return this;
 		}
 	}

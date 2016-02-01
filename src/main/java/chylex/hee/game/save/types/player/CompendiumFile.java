@@ -1,258 +1,178 @@
 package chylex.hee.game.save.types.player;
 import gnu.trove.set.hash.TIntHashSet;
-import net.minecraft.entity.EntityList;
-import net.minecraft.entity.EntityLiving;
-import net.minecraft.item.Item;
-import net.minecraft.nbt.NBTTagCompound;
+import java.util.HashSet;
+import java.util.Objects;
+import java.util.Set;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.nbt.NBTTagIntArray;
-import net.minecraftforge.common.util.Constants.NBT;
-import org.apache.commons.lang3.StringUtils;
+import net.minecraft.nbt.NBTTagString;
 import chylex.hee.game.save.types.PlayerFile;
-import chylex.hee.mechanics.compendium.KnowledgeRegistrations;
 import chylex.hee.mechanics.compendium.content.KnowledgeFragment;
 import chylex.hee.mechanics.compendium.content.KnowledgeObject;
-import chylex.hee.mechanics.compendium.objects.IKnowledgeObjectInstance;
-import chylex.hee.mechanics.compendium.objects.ObjectBlock;
-import chylex.hee.mechanics.compendium.objects.ObjectBlock.BlockMetaWrapper;
-import chylex.hee.mechanics.compendium.objects.ObjectDummy;
-import chylex.hee.mechanics.compendium.objects.ObjectItem;
-import chylex.hee.mechanics.compendium.objects.ObjectMob;
-import chylex.hee.mechanics.compendium.player.PlayerDiscoveryList;
-import chylex.hee.mechanics.compendium.player.PlayerDiscoveryList.IObjectSerializer;
-import cpw.mods.fml.common.registry.GameData;
-import cpw.mods.fml.common.registry.GameRegistry;
-import cpw.mods.fml.common.registry.GameRegistry.UniqueIdentifier;
+import chylex.hee.mechanics.compendium.content.fragments.KnowledgeFragmentType;
+import chylex.hee.mechanics.compendium.content.objects.IObjectHolder;
+import chylex.hee.mechanics.compendium.util.KnowledgeSerialization;
+import chylex.hee.packets.PacketPipeline;
+import chylex.hee.packets.client.C19CompendiumData;
+import chylex.hee.system.abstractions.nbt.NBTCompound;
+import chylex.hee.system.util.MathUtil;
+import com.google.common.collect.DiscreteDomain;
+import com.google.common.collect.Range;
+import com.google.common.collect.TreeRangeSet;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
 public class CompendiumFile extends PlayerFile{
-	private boolean seenHelp;
-	private int pointAmount;
+	public static final byte distanceLimit = 2; // 0 = discovered, 2 = unavailable
 	
-	private final PlayerDiscoveryList<ObjectBlock,BlockMetaWrapper> discoveredBlocks = new PlayerDiscoveryList<>(new DiscoveryBlockSerializer());
-	private final PlayerDiscoveryList<ObjectItem,Item> discoveredItems = new PlayerDiscoveryList<>(new DiscoveryItemSerializer());
-	private final PlayerDiscoveryList<ObjectMob,Class<? extends EntityLiving>> discoveredMobs = new PlayerDiscoveryList<>(new DiscoveryMobSerializer());
-	private final PlayerDiscoveryList<ObjectDummy,String> discoveredMisc = new PlayerDiscoveryList<>(new DiscoveryStringSerializer());
-	
-	private final TIntHashSet unlockedFragments = new TIntHashSet();
+	private int points;
+	private final TIntHashSet extraFragments = new TIntHashSet();
+	private final TreeRangeSet<Integer> readFragments = TreeRangeSet.create();
+	private final Set<KnowledgeObject<? extends IObjectHolder<?>>> discoveredObjects = new HashSet<>(32);
 	
 	public CompendiumFile(String filename){
 		super("compendium",filename);
 	}
 	
 	@SideOnly(Side.CLIENT)
-	public CompendiumFile(NBTTagCompound nbt){
+	public CompendiumFile(NBTCompound nbt){
 		super("","");
 		onLoad(nbt);
 	}
 	
-	public boolean seenHelp(){
-		return seenHelp;
-	}
-	
-	public void setSeenHelp(){
-		seenHelp = true;
-		setModified();
-	}
+	// Points
 	
 	public int getPoints(){
-		return pointAmount;
+		return points;
 	}
 	
-	public void givePoints(int amount){
-		pointAmount += Math.max(0,amount);
+	public void offsetPoints(int amount){
+		points = MathUtil.clamp(points+amount,0,Short.MAX_VALUE);
 		setModified();
 	}
 	
-	public void payPoints(int amount){
-		pointAmount = Math.max(0,pointAmount-amount);
+	// Discovery
+	
+	public boolean tryDiscoverObject(EntityPlayer player, KnowledgeObject<? extends IObjectHolder<?>> obj, boolean forceManual){
+		if ((obj.canBeDiscovered() || forceManual) && unlockObject(obj)){
+			points += obj.getReward();
+			PacketPipeline.sendToPlayer(player,new C19CompendiumData(this,obj));
+			return true;
+		}
+		else return false;
+	}
+	
+	private boolean unlockObject(KnowledgeObject<? extends IObjectHolder<?>> obj){
+		boolean added = discoveredObjects.add(obj);
+		if (added)setModified();
+		return added;
+	}
+	
+	public boolean isDiscovered(KnowledgeObject<? extends IObjectHolder<?>> obj){
+		return discoveredObjects.contains(obj);
+	}
+	
+	private int getDiscoveryDistanceInner(KnowledgeObject<? extends IObjectHolder<?>> obj, int currentDistance){
+		if (currentDistance == distanceLimit+1 || discoveredObjects.contains(obj))return currentDistance-1;
+		if (obj.isCategoryObject())return currentDistance;
+		
+		int lowest = distanceLimit;
+		
+		for(KnowledgeObject<? extends IObjectHolder<?>> parent:obj.getParents()){
+			lowest = Math.min(lowest,getDiscoveryDistanceInner(parent,currentDistance+1));
+		}
+		
+		return lowest;
+	}
+	
+	public int getDiscoveryDistance(KnowledgeObject<? extends IObjectHolder<?>> obj){
+		return getDiscoveryDistanceInner(obj,0);
+	}
+	
+	// Fragments
+	
+	public boolean tryPurchaseFragment(EntityPlayer player, KnowledgeFragment fragment){
+		if (points >= fragment.getPrice() && unlockFragment(fragment)){
+			offsetPoints(-fragment.getPrice());
+			PacketPipeline.sendToPlayer(player,new C19CompendiumData(this));
+			return true;
+		}
+		else return false;
+	}
+	
+	public boolean tryUnlockHintFragment(EntityPlayer player, KnowledgeFragment fragment){
+		if (fragment.getType() != KnowledgeFragmentType.HINT)return false;
+		
+		if (extraFragments.add(fragment.globalID)){
+			PacketPipeline.sendToPlayer(player,new C19CompendiumData(this));
+			return true;
+		}
+		else return false;
+	}
+	
+	public boolean unlockFragment(KnowledgeFragment fragment){
+		if (fragment.getType() != KnowledgeFragmentType.SECRET && fragment.getType() != KnowledgeFragmentType.HINT)return false;
+		
+		boolean added = extraFragments.add(fragment.globalID);
+		if (added)markFragmentAsRead(fragment.globalID); // also calls setModified
+		return added;
+	}
+	
+	public boolean canSeeFragment(KnowledgeObject<? extends IObjectHolder<?>> obj, KnowledgeFragment fragment){
+		switch(fragment.getType()){
+			case VISIBLE: return true;
+			case ESSENTIAL: return isDiscovered(obj) && getDiscoveryDistance(obj) <= 1;
+			case DISCOVERY: return isDiscovered(obj);
+			default: return extraFragments.contains(fragment.globalID);
+		}
+	}
+	
+	public void markFragmentAsRead(int id){
+		readFragments.add(Range.singleton(id).canonical(DiscreteDomain.integers()));
 		setModified();
 	}
 	
-	public boolean tryDiscoverObject(KnowledgeObject<?> object, boolean addReward){
-		IKnowledgeObjectInstance<?> obj = object.getObject();
-		
-		if (obj instanceof ObjectBlock)return tryDiscoverBlock((KnowledgeObject<ObjectBlock>)object,addReward);
-		else if (obj instanceof ObjectItem)return tryDiscoverItem((KnowledgeObject<ObjectItem>)object,addReward);
-		else if (obj instanceof ObjectMob)return tryDiscoverMob((KnowledgeObject<ObjectMob>)object,addReward);
-		else if (obj instanceof ObjectDummy)return discoveredMisc.addObject(((KnowledgeObject<ObjectDummy>)object).getObject());
-		else return false;
+	public boolean hasReadFragment(KnowledgeFragment fragment){
+		return readFragments.contains(fragment.globalID);
 	}
 	
-	public boolean hasDiscoveredObject(KnowledgeObject<?> object){
-		if (object == KnowledgeRegistrations.HELP)return true;
-		
-		IKnowledgeObjectInstance<?> obj = object.getObject();
-		
-		if (obj instanceof ObjectBlock)return discoveredBlocks.hasDiscoveredObject((ObjectBlock)obj);
-		else if (obj instanceof ObjectItem)return discoveredItems.hasDiscoveredObject((ObjectItem)obj);
-		else if (obj instanceof ObjectMob)return discoveredMobs.hasDiscoveredObject((ObjectMob)obj);
-		else if (obj instanceof ObjectDummy)return discoveredMisc.hasDiscoveredObject((ObjectDummy)obj);
-		else return false;
-	}
-	
-	public boolean tryDiscoverBlock(KnowledgeObject<ObjectBlock> block, boolean addReward){
-		if (discoveredBlocks.addObject(block.getObject())){
-			onDiscover(block,addReward);
-			return true;
-		}
-		else return false;
-	}
-	
-	public boolean hasDiscoveredBlock(KnowledgeObject<ObjectBlock> block){
-		return discoveredBlocks.hasDiscoveredObject(block.getObject());
-	}
-	
-	public boolean tryDiscoverItem(KnowledgeObject<ObjectItem> item, boolean addReward){
-		if (discoveredItems.addObject(item.getObject())){
-			onDiscover(item,addReward);
-			return true;
-		}
-		else return false;
-	}
-	
-	public boolean hasDiscoveredItem(KnowledgeObject<ObjectItem> item){
-		return discoveredItems.hasDiscoveredObject(item.getObject());
-	}
-	
-	public boolean tryDiscoverMob(KnowledgeObject<ObjectMob> mob, boolean addReward){
-		if (discoveredMobs.addObject(mob.getObject())){
-			onDiscover(mob,addReward);
-			return true;
-		}
-		else return false;
-	}
-	
-	public boolean hasDiscoveredMob(KnowledgeObject<ObjectMob> mob){
-		return discoveredMobs.hasDiscoveredObject(mob.getObject());
-	}
-	
-	private void onDiscover(KnowledgeObject<?> object, boolean addReward){
-		if (addReward){
-			unlockDiscoveryFragments(object);
-			pointAmount += object.getDiscoveryReward();
-		}
-		
-		setModified();
-	}
-	
-	private void unlockDiscoveryFragments(KnowledgeObject<?> object){
-		for(KnowledgeFragment fragment:object.getFragments()){
-			if (fragment.isUnlockedOnDiscovery())tryUnlockFragment(fragment);
-		}
-	}
-	
-	public boolean tryUnlockFragment(KnowledgeFragment fragment){
-		if (unlockedFragments.add(fragment.globalID)){
-			for(int cascade:fragment.getUnlockCascade())tryUnlockFragment(KnowledgeFragment.getById(cascade));
-			setModified();
-			return true;
-		}
-		else return false;
-	}
-	
-	public boolean hasUnlockedFragment(KnowledgeFragment fragment){
-		return fragment != null && unlockedFragments.contains(fragment.globalID);
-	}
-	
-	public FragmentPurchaseStatus canPurchaseFragment(KnowledgeFragment fragment){
-		if (!fragment.isBuyable())return FragmentPurchaseStatus.NOT_BUYABLE;
-		if (pointAmount < fragment.getPrice())return FragmentPurchaseStatus.NOT_ENOUGH_POINTS;
-		
-		for(int requirement:fragment.getUnlockRequirements()){
-			if (!unlockedFragments.contains(requirement))return FragmentPurchaseStatus.REQUIREMENTS_UNFULFILLED;
-		}
-		
-		return FragmentPurchaseStatus.CAN_PURCHASE;
-	}
+	// Saving & Loading
 	
 	public void reset(){
-		onLoad(new NBTTagCompound());
+		onLoad(new NBTCompound());
 		setModified();
 	}
 	
 	@Override
-	public void onSave(NBTTagCompound nbt){
-		nbt.setBoolean("hlp",seenHelp);
-		nbt.setInteger("kps",pointAmount);
-		nbt.setTag("fndBlocks",discoveredBlocks.saveToNBTList());
-		nbt.setTag("fndItems",discoveredItems.saveToNBTList());
-		nbt.setTag("fndMobs",discoveredMobs.saveToNBTList());
-		nbt.setTag("fndMisc",discoveredMisc.saveToNBTList());
-		nbt.setTag("unlocked",new NBTTagIntArray(unlockedFragments.toArray()));
+	public void onSave(NBTCompound nbt){
+		nbt.setShort("pts",(short)points);
+		nbt.setTag("efg",new NBTTagIntArray(extraFragments.toArray()));
+		nbt.writeList("obj",discoveredObjects.stream().map(KnowledgeSerialization::serialize).map(NBTTagString::new));
+		
+		StringBuilder build = new StringBuilder();
+		
+		for(Range<Integer> range:readFragments.asRanges()){
+			build.append((char)(32+range.lowerEndpoint().shortValue())).append((char)(32+range.upperEndpoint().shortValue()));
+		}
+		
+		nbt.setString("rfg",build.toString());
 	}
 
 	@Override
-	protected void onLoad(NBTTagCompound nbt){
-		seenHelp = nbt.getBoolean("hlp");
-		pointAmount = nbt.getInteger("kps");
-		discoveredBlocks.loadFromNBTList(nbt.getTagList("fndBlocks",NBT.TAG_STRING));
-		discoveredItems.loadFromNBTList(nbt.getTagList("fndItems",NBT.TAG_STRING));
-		discoveredMobs.loadFromNBTList(nbt.getTagList("fndMobs",NBT.TAG_STRING));
-		discoveredMisc.loadFromNBTList(nbt.getTagList("fndMisc",NBT.TAG_STRING));
-		unlockedFragments.clear();
-		unlockedFragments.addAll(nbt.getIntArray("unlocked"));
-	}
-	
-	// SERIALIZERS
-	
-	private static class DiscoveryBlockSerializer implements IObjectSerializer<BlockMetaWrapper>{
-		@Override
-		public String serialize(BlockMetaWrapper object){
-			UniqueIdentifier identifier = GameRegistry.findUniqueIdentifierFor(object.block);
-			return identifier.modId+":"+identifier.name+":"+object.metadata;
+	protected void onLoad(NBTCompound nbt){
+		points = nbt.getShort("pts");
+		
+		extraFragments.clear();
+		extraFragments.addAll(nbt.getIntArray("efg"));
+		
+		discoveredObjects.clear();
+		nbt.getList("obj").readStrings().map(KnowledgeSerialization::deserialize).filter(Objects::nonNull).forEach(discoveredObjects::add);
+		
+		readFragments.clear();
+		String src = nbt.getString("rfg");
+		
+		for(int chr = 0; chr < src.length()-1; chr += 2){
+			readFragments.add(Range.closedOpen(src.charAt(chr)-32,src.charAt(chr+1)-32)); // closedOpen because ranges be weird
 		}
-
-		@Override
-		public BlockMetaWrapper deserialize(String data){
-			int secondColonIndex = data.lastIndexOf(":");
-			String meta = data.substring(secondColonIndex+1);
-			
-			if (!meta.equals("-1") && !StringUtils.isNumeric(meta))return null;
-			else return new BlockMetaWrapper(GameData.getBlockRegistry().getObject(data.substring(0,secondColonIndex)),Integer.parseInt(meta));
-		}
-	}
-	
-	private static class DiscoveryItemSerializer implements IObjectSerializer<Item>{
-		@Override
-		public String serialize(Item object){
-			UniqueIdentifier identifier = GameRegistry.findUniqueIdentifierFor(object);
-			return identifier.modId+":"+identifier.name;
-		}
-
-		@Override
-		public Item deserialize(String data){
-			return GameData.getItemRegistry().getObject(data);
-		}
-	}
-	
-	private static class DiscoveryMobSerializer implements IObjectSerializer<Class<? extends EntityLiving>>{
-		@Override
-		public String serialize(Class<? extends EntityLiving> object){
-			return (String)EntityList.classToStringMapping.get(object);
-		}
-
-		@Override
-		public Class<? extends EntityLiving> deserialize(String data){
-			return (Class<? extends EntityLiving>)EntityList.stringToClassMapping.get(data);
-		}
-	}
-	
-	private static class DiscoveryStringSerializer implements IObjectSerializer<String>{
-		@Override
-		public String serialize(String object){
-			return object;
-		}
-
-		@Override
-		public String deserialize(String data){
-			return data;
-		}
-	}
-	
-	// ENUMS
-	
-	public enum FragmentPurchaseStatus{
-		CAN_PURCHASE, NOT_BUYABLE, NOT_ENOUGH_POINTS, REQUIREMENTS_UNFULFILLED
 	}
 }

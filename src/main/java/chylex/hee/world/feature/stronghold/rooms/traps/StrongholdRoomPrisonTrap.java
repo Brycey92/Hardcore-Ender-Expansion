@@ -18,6 +18,7 @@ import chylex.hee.system.abstractions.Meta;
 import chylex.hee.system.abstractions.Meta.Skull;
 import chylex.hee.system.abstractions.Pos;
 import chylex.hee.system.abstractions.Pos.PosMutable;
+import chylex.hee.system.abstractions.entity.EntitySelector;
 import chylex.hee.system.abstractions.facing.Facing4;
 import chylex.hee.system.logging.Log;
 import chylex.hee.world.feature.stronghold.rooms.StrongholdRoom;
@@ -25,8 +26,8 @@ import chylex.hee.world.structure.StructureWorld;
 import chylex.hee.world.structure.dungeon.StructureDungeonPieceInst;
 import chylex.hee.world.structure.util.IBlockPicker;
 import chylex.hee.world.structure.util.IStructureTileEntity;
-import chylex.hee.world.util.Size;
 import chylex.hee.world.util.BoundingBox;
+import chylex.hee.world.util.Size;
 
 public class StrongholdRoomPrisonTrap extends StrongholdRoom{
 	public static StrongholdRoomPrisonTrap[] generatePrisons(){
@@ -77,7 +78,7 @@ public class StrongholdRoomPrisonTrap extends StrongholdRoom{
 		
 		posStart.move(facing);
 		posEnd.set(posStart).move(facing,4);
-		placeLine(world,rand,IBlockPicker.basic(Blocks.iron_bars),posStart.x,y+1,posStart.z,posEnd.x,y+3,posEnd.z); // prison bars
+		placeLine(world,rand,placeIronBars,posStart.x,y+1,posStart.z,posEnd.x,y+3,posEnd.z); // prison bars
 		
 		// inside prison
 		posStart.set(x+connection.offsetX,y+1,z+connection.offsetZ).move(facing).move(facing.rotateLeft(),3);
@@ -102,11 +103,17 @@ public class StrongholdRoomPrisonTrap extends StrongholdRoom{
 		
 		IStructureTileEntity skullTile = Meta.generateSkullGround(rand.nextInt(3) == 0 ? Skull.ZOMBIE : Skull.SKELETON,posStart,posStart.offset(facing.rotateRight()).offset(skullCorner ? facing : facing.opposite()));
 		world.setTileEntity(posStart.x,y+1,posStart.z,skullTile);
+		
+		// chest
+		posStart.move(skullCorner ? facing : facing.opposite(),7);
+		placeBlock(world,rand,placeChest,posStart.x,y+1,posStart.z);
+		world.setTileEntity(posStart.x,y+1,posStart.z,Meta.generateChest(facing.rotateRight(),generateLootGeneral));
 	}
 	
 	public static class TriggerPrisonSilverfish extends TriggerBase{
 		private BoundingBox checkBox;
-		private byte checkTimer = 0, spawnsLeft = -1;
+		private int checkTimer = 0;
+		private int spawnsLeft = -1;
 		
 		public TriggerPrisonSilverfish(){}
 		
@@ -127,10 +134,10 @@ public class StrongholdRoomPrisonTrap extends StrongholdRoom{
 			if (++checkTimer >= 14){
 				checkTimer = 0;
 				
-				List<EntityPlayer> players = world.getEntitiesWithinAABB(EntityPlayer.class,checkBox.toAABB().offset(entity.posX,entity.posY,entity.posZ));
+				List<EntityPlayer> players = EntitySelector.players(world,checkBox.toAABB().offset(entity.posX,entity.posY,entity.posZ));
 				if (players.isEmpty())return;
 				
-				if (spawnsLeft == -1)spawnsLeft = (byte)(2+world.difficultySetting.getDifficultyId()/2);
+				if (spawnsLeft == -1)spawnsLeft = 2+world.difficultySetting.getDifficultyId()/2;
 				else if (spawnsLeft > 0){
 					PosMutable mpos = new PosMutable();
 					

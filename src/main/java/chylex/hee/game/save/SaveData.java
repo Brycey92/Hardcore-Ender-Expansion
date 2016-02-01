@@ -5,30 +5,46 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.nbt.CompressedStreamTools;
-import net.minecraft.nbt.NBTTagCompound;
 import net.minecraftforge.common.DimensionManager;
-import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.world.WorldEvent;
 import chylex.hee.game.save.handlers.GlobalDataHandler;
 import chylex.hee.game.save.handlers.PlayerDataHandler;
 import chylex.hee.game.save.types.PlayerFile;
+import chylex.hee.system.abstractions.nbt.NBT;
+import chylex.hee.system.abstractions.nbt.NBTCompound;
 import chylex.hee.system.logging.Log;
+import chylex.hee.system.util.GameRegistryUtil;
+import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
+import cpw.mods.fml.relauncher.Side;
 
 public final class SaveData{
 	private static final SaveData instance = new SaveData();
 	
 	public static void register(){
-		MinecraftForge.EVENT_BUS.register(instance);
+		GameRegistryUtil.registerEventHandler(instance);
 		for(ISaveDataHandler handler:instance.handlers)handler.register();
 	}
 	
 	public static <T extends SaveFile> T global(Class<T> cls){
+		checkServerSide();
 		return instance.global.get(cls);
 	}
 	
 	public static <T extends PlayerFile> T player(EntityPlayer player, Class<T> cls){
+		checkServerSide();
 		return instance.player.get(player,cls);
+	}
+	
+	public static <T extends PlayerFile> T player(String playerID, Class<T> cls){
+		checkServerSide();
+		return instance.player.get(playerID,cls);
+	}
+	
+	private static void checkServerSide(){
+		if (Log.isDebugEnabled() && FMLCommonHandler.instance().getEffectiveSide() != Side.SERVER){
+			throw new RuntimeException("SaveData cannot be accessed on client side: "+Thread.currentThread().getName());
+		}
 	}
 	
 	private final GlobalDataHandler global;
@@ -57,13 +73,12 @@ public final class SaveData{
 			worldIdentifier = id;
 			
 			File root = DimensionManager.getCurrentSaveRootDirectory();
+			if (root == null)throw new IllegalStateException("Could not determine world save directory!");
 			
-			if (root != null){
-				worldSaveDir = new File(root,"hee2");
-				if (!worldSaveDir.exists())worldSaveDir.mkdirs();
-			}
+			worldSaveDir = new File(root,"hee2");
+			if (!worldSaveDir.exists())worldSaveDir.mkdirs();
 			
-			for(ISaveDataHandler handler:handlers)handler.clear(root);
+			for(ISaveDataHandler handler:handlers)handler.clear(worldSaveDir);
 		}
 	}
 	
@@ -74,21 +89,21 @@ public final class SaveData{
 		for(ISaveDataHandler handler:handlers)handler.save();
 	}
 	
-	public static NBTTagCompound readFile(File file){
+	public static NBTCompound readFile(File file){
 		if (file.exists()){
 			try(FileInputStream fileStream = new FileInputStream(file)){
-				return CompressedStreamTools.readCompressed(fileStream);
+				return NBT.wrap(CompressedStreamTools.readCompressed(fileStream));
 			}catch(IOException ioe){
 				Log.throwable(ioe,"Error reading NBT file - $0",file);
 			}
 		}
 		
-		return new NBTTagCompound();
+		return new NBTCompound();
 	}
 	
-	public static boolean saveFile(File file, NBTTagCompound nbt){
+	public static boolean saveFile(File file, NBTCompound nbt){
 		try(FileOutputStream fileStream = new FileOutputStream(file)){
-			CompressedStreamTools.writeCompressed(nbt,fileStream);
+			CompressedStreamTools.writeCompressed(nbt.getUnderlyingTag(),fileStream);
 			return true;
 		}catch(Exception ex){
 			Log.throwable(ex,"Error writing NBT file $0",file);

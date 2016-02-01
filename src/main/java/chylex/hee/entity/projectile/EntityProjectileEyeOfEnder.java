@@ -8,7 +8,6 @@ import net.minecraft.entity.item.EntityItem;
 import net.minecraft.init.Items;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.util.Vec3;
 import net.minecraft.world.ChunkCoordIntPair;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldType;
@@ -20,13 +19,17 @@ import chylex.hee.packets.client.C08PlaySound;
 import chylex.hee.packets.client.C21EffectEntity;
 import chylex.hee.system.abstractions.BlockInfo;
 import chylex.hee.system.abstractions.Pos;
-import chylex.hee.system.util.DragonUtil;
+import chylex.hee.system.abstractions.Vec;
+import chylex.hee.system.abstractions.entity.EntityDataWatcher;
 import chylex.hee.system.util.MathUtil;
 import chylex.hee.world.feature.WorldGenStronghold;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
 public class EntityProjectileEyeOfEnder extends Entity{
+	private enum Data{ STRONGHOLD_X, STRONGHOLD_Z, TERRAIN_HEIGHT }
+	
+	private EntityDataWatcher entityData;
 	public int timer;
 	private double moveX, moveZ, targetY;
 	private float speed;
@@ -47,9 +50,10 @@ public class EntityProjectileEyeOfEnder extends Entity{
 
 	@Override
 	protected void entityInit(){
-		dataWatcher.addObject(16,0);
-		dataWatcher.addObject(17,0);
-		dataWatcher.addObject(18,(short)0);
+		entityData = new EntityDataWatcher(this);
+		entityData.addInt(Data.STRONGHOLD_X);
+		entityData.addInt(Data.STRONGHOLD_Z);
+		entityData.addShort(Data.TERRAIN_HEIGHT);
 	}
 	
 	@Override
@@ -72,28 +76,28 @@ public class EntityProjectileEyeOfEnder extends Entity{
 		}
 		
 		if (timer == 40){
-			strongholdX = dataWatcher.getWatchableObjectInt(16);
-			strongholdZ = dataWatcher.getWatchableObjectInt(17);
-			maxTerrainY = dataWatcher.getWatchableObjectShort(18);
+			strongholdX = entityData.getInt(Data.STRONGHOLD_X);
+			strongholdZ = entityData.getInt(Data.STRONGHOLD_Z);
+			maxTerrainY = entityData.getShort(Data.TERRAIN_HEIGHT);
 			
-			double[] vec = DragonUtil.getNormalizedVector(strongholdX+0.5D-posX,strongholdZ+0.5D-posZ);
-			moveX = vec[0]*0.27D;
-			moveZ = vec[1]*0.27D;
+			Vec vec = Vec.xz(strongholdX+0.5D-posX,strongholdZ+0.5D-posZ).normalized();
+			moveX = vec.x*0.27D;
+			moveZ = vec.z*0.27D;
 		}
 		else if (timer > 40){
 			Pos center = Pos.at(this);
 			
 			if (!center.equals(prevBlockPos)){
 				Set<Pos> checkedBlocks = new HashSet<>(); // y = 0
-				Vec3 perpendicular = Vec3.createVectorHelper(-moveZ*3D,0D,moveX*3D);
+				Vec perpendicular = Vec.xz(-moveZ*3D,moveX*3D);
 				
 				for(int line = -1; line <= 1; line++){
-					Vec3 vec = Vec3.createVectorHelper(posX+line*perpendicular.xCoord,0D,posZ+line*perpendicular.zCoord);
+					Vec vec = Vec.xz(posX+line*perpendicular.x,posZ+line*perpendicular.z);
 					
 					for(int distance = 0; distance < 12; distance++){
-						vec.xCoord += moveX*4D;
-						vec.zCoord += moveZ*4D;
-						checkedBlocks.add(Pos.at(vec.xCoord,0,vec.zCoord));
+						vec.x += moveX*4D;
+						vec.z += moveZ*4D;
+						checkedBlocks.add(vec.toPos());
 					}
 				}
 				
@@ -124,9 +128,9 @@ public class EntityProjectileEyeOfEnder extends Entity{
 				Optional<ChunkCoordIntPair> stronghold = WorldGenStronghold.findNearestStronghold(MathUtil.floor(posX)>>4,MathUtil.floor(posZ)>>4,worldObj);
 				
 				if (stronghold.isPresent()){
-					dataWatcher.updateObject(16,16*stronghold.get().chunkXPos+8);
-					dataWatcher.updateObject(17,16*stronghold.get().chunkZPos+8);
-					dataWatcher.updateObject(18,(short)(worldObj.getWorldInfo().getTerrainType() == WorldType.AMPLIFIED ? 256 : 128)); // ignore floating islands from other mods
+					entityData.setInt(Data.STRONGHOLD_X,16*stronghold.get().chunkXPos+8);
+					entityData.setInt(Data.STRONGHOLD_Z,16*stronghold.get().chunkZPos+8);
+					entityData.setShort(Data.TERRAIN_HEIGHT,worldObj.getWorldInfo().getTerrainType() == WorldType.AMPLIFIED ? 256 : 128); // ignore floating islands from other mods
 					foundStronghold = true;
 				}
 			}
@@ -176,7 +180,7 @@ public class EntityProjectileEyeOfEnder extends Entity{
 	}
 	
 	@Override
-    @SideOnly(Side.CLIENT)
+	@SideOnly(Side.CLIENT)
 	public void setPositionAndRotation2(double x, double y, double z, float rotationYaw, float rotationPitch, int three){}
 	
 	@Override

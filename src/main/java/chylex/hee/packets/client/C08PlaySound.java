@@ -40,7 +40,8 @@ public class C08PlaySound extends AbstractClientPacket{
 							 SKELETON_HURT = 29,
 							 SKELETON_DIE = 30,
 							 HAUNTEDMINER_ATTACK_BLAST = 31,
-							 POP = 32;
+							 POP = 32,
+							 ENDERMAN_STARE = 33;
 	
 	private static final String[] soundNames = new String[]{
 		/*  0 */ "hardcoreenderexpansion:mob.endereye.attack.poof",
@@ -75,35 +76,36 @@ public class C08PlaySound extends AbstractClientPacket{
 		/* 29 */ "mob.skeleton.hurt",
 		/* 30 */ "mob.skeleton.death",
 		/* 31 */ "hardcoreenderexpansion:mob.hauntedminer.attack.blast",
-		/* 32 */ "random.pop"
+		/* 32 */ "random.pop",
+		/* 33 */ "mob.endermen.stare"
 	};
 	
 	private byte soundId;
-	private double x, y, z;
+	private float x, y, z; // float loses precision for positions inside blocks
 	private float volume, pitch;
 	
 	public C08PlaySound(){}
 	
 	public C08PlaySound(byte soundId, double x, double y, double z, float volume, float pitch){
 		this.soundId = soundId;
-		this.x = x;
-		this.y = y;
-		this.z = z;
+		this.x = (float)x;
+		this.y = (float)y;
+		this.z = (float)z;
 		this.volume = volume;
 		this.pitch = pitch;
 	}
 	
 	@Override
 	public void write(ByteBuf buffer){
-		buffer.writeByte(soundId).writeDouble(x).writeDouble(y).writeDouble(z).writeFloat(volume).writeFloat(pitch);
+		buffer.writeByte(soundId).writeFloat(x).writeFloat(y).writeFloat(z).writeFloat(volume).writeFloat(pitch);
 	}
 
 	@Override
 	public void read(ByteBuf buffer){
 		soundId = buffer.readByte();
-		x = buffer.readDouble();
-		y = buffer.readDouble();
-		z = buffer.readDouble();
+		x = buffer.readFloat();
+		y = buffer.readFloat();
+		z = buffer.readFloat();
 		volume = buffer.readFloat();
 		pitch = buffer.readFloat();
 	}

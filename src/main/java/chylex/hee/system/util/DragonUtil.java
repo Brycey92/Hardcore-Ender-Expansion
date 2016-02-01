@@ -7,9 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Random;
 import java.util.regex.Pattern;
-import org.apache.commons.lang3.ArrayUtils;
 import net.minecraft.block.Block;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
@@ -19,6 +17,7 @@ import net.minecraft.util.MovingObjectPosition;
 import net.minecraft.util.MovingObjectPosition.MovingObjectType;
 import net.minecraft.util.Vec3;
 import net.minecraft.world.World;
+import org.apache.commons.lang3.ArrayUtils;
 import chylex.hee.system.abstractions.Pos.PosMutable;
 import chylex.hee.system.collections.CollectionUtil;
 import chylex.hee.system.logging.Stopwatch;
@@ -71,7 +70,7 @@ public final class DragonUtil{
 
 		for(int a = 0; a < 4; a++){
 			for(int b = 0; b < 2; b++){
-				MovingObjectPosition mop = entity.worldObj.rayTraceBlocks(Vec3.createVectorHelper(px,py+0.12F,pz),Vec3.createVectorHelper(x+rayX[a]*pointScale,y+(b == 0?-1D:1D)*pointScale,z+rayZ[a]*pointScale));
+				MovingObjectPosition mop = entity.worldObj.rayTraceBlocks(Vec3.createVectorHelper(px,py+0.12F,pz),Vec3.createVectorHelper(x+rayX[a]*pointScale,y+(b == 0 ? -1D : 1D)*pointScale,z+rayZ[a]*pointScale));
 				
 				if (mop != null && mop.typeOfHit == MovingObjectType.BLOCK){
 					isBlockedArr[a*2+b] = MathUtil.distance(mop.blockX+0.5D-x,mop.blockY+0.5D-y,mop.blockZ+0.5D-z) > 0.1D &&
@@ -97,24 +96,6 @@ public final class DragonUtil{
 	}
 	
 	/**
-	 * Returns the closest entity to the source. It never returns the source entity, even if it is inside the provided list.
-	 */
-	public static <T extends Entity> T getClosestEntity(Entity source, List<? extends T> list){
-		double closestDist = Double.MAX_VALUE, currentDist;
-		T closestEntity = null;
-		
-		for(T entity:list){
-			if (!entity.isDead && entity != source && (currentDist = source.getDistanceSqToEntity(entity)) < closestDist){
-				closestDist = currentDist;
-				closestEntity = entity;
-			}
-		}
-		
-		return closestEntity;
-	}
-
-	
-	/**
 	 * Returns the sorted list of entities based by distance to the source. It never returns the source entity, even if it is inside the provided list.
 	 */
 	public static <T extends Entity> List<T> getClosestEntities(int maxAmount, Entity source, List<? extends T> list){
@@ -134,15 +115,6 @@ public final class DragonUtil{
 		}
 		
 		return closestEntities;
-	}
-	
-	public static double[] getNormalizedVector(double vecX, double vecZ){
-		double len = Math.sqrt(vecX*vecX+vecZ*vecZ);
-		return len == 0 ? new double[]{ 0, 0 } : new double[]{ vecX/len, vecZ/len };
-	}
-	
-	public static Vec3 getRandomVector(Random rand){
-		return Vec3.createVectorHelper(rand.nextDouble()-0.5D,rand.nextDouble()-0.5D,rand.nextDouble()-0.5D).normalize();
 	}
 
 	public static <T> T[] getNonNullValues(T[] array){
@@ -179,14 +151,6 @@ public final class DragonUtil{
 			a -= split;
 			entity.worldObj.spawnEntityInWorld(new EntityXPOrb(entity.worldObj,entity.posX,entity.posY,entity.posZ,a));
 		}
-	}
-	
-	public static void createMobExplosion(Entity entity, double x, double y, double z, float strength, boolean fire){
-		entity.worldObj.newExplosion(entity,x,y,z,strength,fire,entity.worldObj.getGameRules().getGameRuleBooleanValue("mobGriefing"));
-	}
-	
-	public static void createMobExplosion(World world, double x, double y, double z, float strength, boolean fire){
-		world.newExplosion(null,x,y,z,strength,fire,world.getGameRules().getGameRuleBooleanValue("mobGriefing"));
 	}
 	
 	public static String stripChatFormatting(String str){

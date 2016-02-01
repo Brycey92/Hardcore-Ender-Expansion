@@ -8,7 +8,6 @@ import chylex.hee.system.abstractions.facing.Facing4;
 import chylex.hee.world.feature.stronghold.rooms.StrongholdRoom;
 import chylex.hee.world.structure.StructureWorld;
 import chylex.hee.world.structure.dungeon.StructureDungeonPieceInst;
-import chylex.hee.world.structure.util.IBlockPicker;
 import chylex.hee.world.util.Size;
 
 public class StrongholdRoomLitTotem extends StrongholdRoom{
@@ -24,7 +23,7 @@ public class StrongholdRoomLitTotem extends StrongholdRoom{
 		PosMutable mpos = new PosMutable(centerX,0,centerZ);
 		
 		// floor patterns
-		placeBlock(world,rand,IBlockPicker.basic(Blocks.stonebrick,Meta.stoneBrickChiseled),centerX,y,centerZ);
+		placeBlock(world,rand,placeStoneBrickChiseled,centerX,y,centerZ);
 		
 		placeStairOutline(world,rand,Blocks.stone_brick_stairs,centerX,y,centerZ,1,true,false);
 		
@@ -44,12 +43,10 @@ public class StrongholdRoomLitTotem extends StrongholdRoom{
 		}
 		
 		// totem
-		IBlockPicker placeStoneWall = random -> new BlockInfo(Blocks.cobblestone_wall,random.nextInt(3) == 0 ? Meta.cobbleWallMossy : Meta.cobbleWallNormal);
-		
-		placeLine(world,rand,placeStoneWall,centerX,y+1,centerZ,centerX,y+5,centerZ); // totem pole
+		placeLine(world,rand,placeStoneBrickWall,centerX,y+1,centerZ,centerX,y+5,centerZ);
 		
 		for(Facing4 facing:Facing4.list){
-			placeBlock(world,rand,placeStoneWall,centerX+facing.getX(),y+3,centerZ+facing.getZ());
+			placeBlock(world,rand,placeStoneBrickWall,centerX+facing.getX(),y+3,centerZ+facing.getZ());
 			world.setAttentionWhore(centerX+facing.getX(),y+4,centerZ+facing.getZ(),new BlockInfo(Blocks.torch,Meta.torchGround));
 		}
 	}

@@ -29,10 +29,6 @@ import cpw.mods.fml.relauncher.SideOnly;
 public class BlockCorruptedEnergy extends Block{
 	private static final Material corruptedEnergy = new MaterialCorruptedEnergy();
 	
-	private static final byte[] offsetX = new byte[]{ -1, 1, 0, 0, 0, 0 },
-								offsetY = new byte[]{ 0, 0, -1, 1, 0, 0 },
-								offsetZ = new byte[]{ 0, 0, 0, 0, -1, 1 };
-	
 	public static final BlockInfo getCorruptedEnergy(int level){
 		if (level >= 16)return new BlockInfo(BlockList.corrupted_energy_high,MathUtil.clamp(level-16,0,15));
 		else if (level >= 0)return new BlockInfo(BlockList.corrupted_energy_low,MathUtil.clamp(level,0,15));
@@ -69,7 +65,7 @@ public class BlockCorruptedEnergy extends Block{
 		
 		if (level > 0){
 			for(int spreadAttempt = 0; spreadAttempt < 1+rand.nextInt(3); spreadAttempt++){
-				Facing6 side = Facing6.list[rand.nextInt(Facing6.list.length)];
+				Facing6 side = Facing6.random(rand);
 				Pos spreadPos = pos.offset(side);
 				
 				if (spreadPos.isAir(world))spreadPos.setBlock(world,getCorruptedEnergy(level-1-rand.nextInt(2)));

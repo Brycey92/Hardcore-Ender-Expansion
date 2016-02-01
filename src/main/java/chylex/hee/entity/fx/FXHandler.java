@@ -3,22 +3,22 @@ import java.util.Random;
 import net.minecraft.client.entity.EntityClientPlayerMP;
 import net.minecraft.init.Items;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.Vec3;
 import net.minecraft.world.World;
 import chylex.hee.HardcoreEnderExpansion;
 import chylex.hee.block.BlockSpookyLeaves;
 import chylex.hee.block.BlockSpookyLog;
-import chylex.hee.entity.item.EntityItemInstabilityOrb.ExplosionOrb;
 import chylex.hee.init.BlockList;
-import chylex.hee.mechanics.misc.HomelandEndermen.HomelandRole;
 import chylex.hee.proxy.FXClientProxy;
+import chylex.hee.system.abstractions.Vec;
+import chylex.hee.system.util.FastRandom;
 import chylex.hee.system.util.MathUtil;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
 @SideOnly(Side.CLIENT)
 public final class FXHandler{
-	private static final Random rand = new Random();
+	private static final FastRandom rand = new FastRandom();
+	private static final Random slowRand = new Random();
 	private static final FXClientProxy fx = (FXClientProxy)HardcoreEnderExpansion.fx;
 	
 	public static void handleBasic(World world, EntityClientPlayerMP player, FXType.Basic fxType, double x, double y, double z){
@@ -112,6 +112,11 @@ public final class FXHandler{
 				world.playSound(x,y,z,"random.fizz",2F,2.2F+(rand.nextFloat()-rand.nextFloat())*0.8F,true);
 				break;
 				
+			case SHRINE_GLITTER:
+				double mot = (rand.nextDouble()-0.5D)*0.1D;
+				fx.global("glitter",x,y,z,rand.nextInt(6) == 0 ? mot : 0D,rand.nextInt(6) == 0 ? mot : 0D,rand.nextInt(6) == 0 ? mot : 0D,0.7F,0.5F,1F);
+				break;
+				
 			default:
 		}
 	}
@@ -148,12 +153,6 @@ public final class FXHandler{
 				world.playSound(x,y,z,"hardcoreenderexpansion:block.random.transform",1.4F,1F+rand.nextFloat()*0.2F,false);
 				break;
 				
-			case ORB_EXPLOSION:
-				ExplosionOrb explosion = new ExplosionOrb(world,null,x,y,z,height);
-				explosion.doExplosionA();
-				explosion.doExplosionB(true);
-				break;
-				
 			case LOUSE_REGEN:
 				for(int a = 0; a < 6; a++)fx.aura(x+randCenter(width),y+rand.nextDouble()*height,z+randCenter(width),0F,0.7F,0F,14+rand.nextInt(10));
 				break;
@@ -184,34 +183,45 @@ public final class FXHandler{
 				
 			case ENTITY_EXPLOSION_PARTICLE:
 				for(int a = 0; a < 20; a++){
-					double offX = rand.nextGaussian()*0.02D, offY = rand.nextGaussian()*0.02D, offZ = rand.nextGaussian()*0.02D;
+					double offX = slowRand.nextGaussian()*0.02D, offY = slowRand.nextGaussian()*0.02D, offZ = slowRand.nextGaussian()*0.02D;
 					fx.global("explosion",x+randCenter(width)-offX*10D,y+rand.nextFloat()*height-offY*10D,z+randCenter(width)-offZ*10D,offX,offY,offZ);
 				}
 				
 				break;
 				
 			case ENDER_EYE_BREAK:
-				FXHelper.create("smoke").pos(x,y,z).fluctuatePos(0.2D).motion(0D,0D,0D).fluctuateMotion(0.08D).spawn(rand,18);
-				FXHelper.create("glitter").pos(x,y,z).fluctuatePos(0.1D).motion(0D,0D,0D).fluctuateMotion(0.03D).paramColor(0.35F+rand.nextFloat()*0.1F,0.3F+rand.nextFloat()*0.4F,0.4F+rand.nextFloat()*0.1F).spawn(rand,40);
-				FXHelper.create("glitter").pos(x,y,z).fluctuatePos(0.1D).motion(0D,0D,0D).fluctuateMotion(0.03D).paramColor(0.4F+rand.nextFloat()*0.2F,0.25F+rand.nextFloat()*0.05F,0.6F+rand.nextFloat()*0.25F).spawn(rand,20);
+				FXHelper.create("smoke").pos(x,y,z).fluctuatePos(0.2D).motion(0D,0D,0D).fluctuateMotion(0.08D).spawn(slowRand,18);
+				FXHelper.create("glitter").pos(x,y,z).fluctuatePos(0.1D).motion(0D,0D,0D).fluctuateMotion(0.03D).paramColor(0.35F+rand.nextFloat()*0.1F,0.3F+rand.nextFloat()*0.4F,0.4F+rand.nextFloat()*0.1F).spawn(slowRand,40);
+				FXHelper.create("glitter").pos(x,y,z).fluctuatePos(0.1D).motion(0D,0D,0D).fluctuateMotion(0.03D).paramColor(0.4F+rand.nextFloat()*0.2F,0.25F+rand.nextFloat()*0.05F,0.6F+rand.nextFloat()*0.25F).spawn(slowRand,20);
 				world.playSound(x,y,z,"dig.glass",1.25F,1.1F,false);
+				break;
+				
+			case ENDERMAN_DESPAWN:
+				for(int a = 0; a < 6; a++)fx.global("smoke",x+randCenter(width),y+rand.nextDouble()*height,z+randCenter(width),randCenter(0.01D),randCenter(0.01D),randCenter(0.01D));
+				for(int a = 0; a < 12; a++)fx.portalFlyOff(x+randCenter(width),y+rand.nextDouble()*height,z+randCenter(width),0.2F+rand.nextFloat()*0.1F,0.15D+rand.nextDouble()*0.05D);
+				world.playSound(x,y,z,"mob.endermen.portal",2F,0.5F,false);
+				break;
+				
+			case ENDERMAN_TP_FAIL:
+				for(int a = 0; a < 8; a++)fx.global("smoke",x+randCenter(width),y+rand.nextDouble()*height,z+randCenter(width),randCenter(0.05D),randCenter(0.05D),randCenter(0.05D));
+				// TODO sound
 				break;
 		}
 	}
 	
 	public static void handleLine(World world, EntityClientPlayerMP player, FXType.Line fxType, double x1, double y1, double z1, double x2, double y2, double z2){
-		Vec3 lineVec = Vec3.createVectorHelper(x2-x1,y2-y1,z2-z1);
-		double len = lineVec.lengthVector();
-		lineVec = lineVec.normalize();
+		Vec lineVec = Vec.xyz(x2-x1,y2-y1,z2-z1);
+		double len = lineVec.length();
+		lineVec = lineVec.normalized();
 		
 		double addX, addY, addZ;
 		
 		switch(fxType){
 			case CHARM_SLAUGHTER_IMPACT:
 			case CHARM_DAMAGE_REDIRECTION:
-				addX = lineVec.xCoord*0.5D;
-				addY = lineVec.yCoord*0.5D;
-				addZ = lineVec.zCoord*0.5D;
+				addX = lineVec.x*0.5D;
+				addY = lineVec.y*0.5D;
+				addZ = lineVec.z*0.5D;
 				
 				float red = 0F, green = 0F, blue = 0F;
 				
@@ -237,9 +247,9 @@ public final class FXHandler{
 				break;
 			
 			case DRAGON_EGG_TELEPORT:
-				addX = lineVec.xCoord*0.25D;
-				addY = lineVec.yCoord*0.25D;
-				addZ = lineVec.zCoord*0.25D;
+				addX = lineVec.x*0.25D;
+				addY = lineVec.y*0.25D;
+				addZ = lineVec.z*0.25D;
 				
 				for(int a = 0; a < 35; a++)fx.global("smoke",x1+randCenter(0.8D),y1+randCenter(0.8D),z1+randCenter(0.8D),randCenter(0.01D),randCenter(0.01D),randCenter(0.01D));
 				
@@ -255,13 +265,13 @@ public final class FXHandler{
 				break;
 				
 			case SPATIAL_DASH_MOVE:
-				addX = lineVec.xCoord*0.2D;
-				addY = lineVec.yCoord*0.2D;
-				addZ = lineVec.zCoord*0.2D;
+				addX = lineVec.x*0.2D;
+				addY = lineVec.y*0.2D;
+				addZ = lineVec.z*0.2D;
 				
 				for(int a = 0; a < len*5D; a++){
 					double dist = player.getDistanceSq(x1,y1,z1);
-					if (dist > 600D && rand.nextBoolean())continue;
+					if (dist > 600D && slowRand.nextBoolean())continue;
 					if (dist < 180D)fx.spatialDash(x1,y1,z1);
 					fx.spatialDash(x1,y1,z1);
 					
@@ -273,9 +283,9 @@ public final class FXHandler{
 				break;
 				
 			case LOUSE_HEAL_ENTITY:
-				addX = lineVec.xCoord*0.125D;
-				addY = lineVec.yCoord*0.125D;
-				addZ = lineVec.zCoord*0.125D;
+				addX = lineVec.x*0.125D;
+				addY = lineVec.y*0.125D;
+				addZ = lineVec.z*0.125D;
 				
 				for(int a = 0; a < len*8D; a++){
 					fx.aura(x1+randCenter(0.1D),y1+randCenter(0.1D),z1+randCenter(0.1D),0F,0.7F,0F,20+rand.nextInt(20));
@@ -303,29 +313,23 @@ public final class FXHandler{
 				world.playSound(x2,y2,z2,"mob.endermen.portal",1F,1F,false);
 				break;
 				
-			case HOMELAND_ENDERMAN_GUARD_CALL:
-				addX = lineVec.xCoord*0.25D;
-				addY = lineVec.yCoord*0.25D;
-				addZ = lineVec.zCoord*0.25D;
-				
-				HomelandRole role = HomelandRole.GUARD;
-				
-				for(int a = 0; a < len*4D; a++){
-					if (rand.nextBoolean())fx.global("portal",x1+randCenter(0.25D),y1+randCenter(0.25D),z1+randCenter(0.25D),randCenter(1D),-rand.nextDouble(),randCenter(1D),role.red,role.green,role.blue);
-					x1 += addX;
-					y1 += addY;
-					z1 += addZ;
+			case ENDERMAN_TELEPORT_SEPARATE:
+				for(int a = 0; a < 30; a++){
+					fx.global("portal",x1+randCenter(0.6F),y1+rand.nextDouble()*2.9F,z1+randCenter(0.6F),randCenter(0.15D),randCenter(0.15D),randCenter(0.15D));
+					fx.global("portal",x2+randCenter(0.6F),y2+rand.nextDouble()*2.9F,z2+randCenter(0.6F),randCenter(0.15D),randCenter(0.15D),randCenter(0.15D));
 				}
 				
+				world.playSound(x1,y1,z1,"mob.endermen.portal",1F,1F,false);
+				world.playSound(x2,y2,z2,"mob.endermen.portal",1F,1F,false);
 				break;
 				
 			case FIRE_FIEND_GOLEM_CALL:
-				addX = lineVec.xCoord*0.5D;
-				addY = lineVec.yCoord*0.5D;
-				addZ = lineVec.zCoord*0.5D;
+				addX = lineVec.x*0.5D;
+				addY = lineVec.y*0.5D;
+				addZ = lineVec.z*0.5D;
 				
 				for(int a = 0; a < len*2D; a++){
-					if (rand.nextBoolean())fx.flame(x1+randCenter(0.1D),y1+randCenter(0.1D),z1+randCenter(0.1D),randCenter(0.1D),randCenter(0.1D),randCenter(0.1D),12);
+					if (slowRand.nextBoolean())fx.flame(x1+randCenter(0.1D),y1+randCenter(0.1D),z1+randCenter(0.1D),randCenter(0.1D),randCenter(0.1D),randCenter(0.1D),12);
 					x1 += addX;
 					y1 += addY;
 					z1 += addZ;

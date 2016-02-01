@@ -9,14 +9,13 @@ import chylex.hee.system.abstractions.Meta.Skull;
 import chylex.hee.system.abstractions.Pos;
 import chylex.hee.system.abstractions.Pos.PosMutable;
 import chylex.hee.system.abstractions.facing.Facing4;
-import chylex.hee.world.feature.stronghold.rooms.StrongholdRoom;
 import chylex.hee.world.structure.StructureWorld;
 import chylex.hee.world.structure.dungeon.StructureDungeonPieceInst;
 import chylex.hee.world.structure.util.IBlockPicker;
-import chylex.hee.world.util.Size;
 import chylex.hee.world.util.BoundingBox;
+import chylex.hee.world.util.Size;
 
-public class StrongholdRoomRelicDungeon extends StrongholdRoom{
+public class StrongholdRoomRelicDungeon extends StrongholdRoomRelic{
 	public static StrongholdRoomRelicDungeon[] generateRelicRooms(){
 		return Arrays.stream(Facing4.list).map(facing -> new StrongholdRoomRelicDungeon(facing)).toArray(StrongholdRoomRelicDungeon[]::new);
 	}
@@ -48,7 +47,7 @@ public class StrongholdRoomRelicDungeon extends StrongholdRoom{
 			
 			// torch inside the cube
 			mpos.set(point1).move(entranceFrom);
-			placeBlock(world,rand,IBlockPicker.basic(Blocks.iron_bars),mpos.x,y+2,mpos.z);
+			placeBlock(world,rand,placeIronBars,mpos.x,y+2,mpos.z);
 			world.setAttentionWhore(mpos.x+sideFacing.getX(),y+2,mpos.z+sideFacing.getZ(),new BlockInfo(Blocks.torch,Meta.torchGround));
 			
 			// upper cube
@@ -97,8 +96,6 @@ public class StrongholdRoomRelicDungeon extends StrongholdRoom{
 			mpos.move(entranceFrom,3);
 		}
 		
-		// TODO play around with those, maybe some smoke particles
-		
 		// wall behind chest area
 		mpos.set(x+connection.offsetX,0,z+connection.offsetZ).move(entranceFrom,17);
 		placeLine(world,rand,placeStoneBrick,mpos.x+4*left.getX(),y+1,mpos.z+4*left.getZ(),mpos.x+4*right.getX(),y+maxY-1,mpos.z+4*right.getZ());
@@ -120,7 +117,7 @@ public class StrongholdRoomRelicDungeon extends StrongholdRoom{
 		world.setTileEntity(point1.getX(),y+2,point1.getZ(),Meta.generateSkullGround(Skull.SKELETON,point1,point2));
 		
 		// chest itself
-		placeBlock(world,rand,IBlockPicker.basic(Blocks.chest),mpos.x,y+2,mpos.z);
-		world.setTileEntity(mpos.x,y+2,mpos.z,Meta.generateChest(entranceFrom.opposite(),generateLoot));
+		placeBlock(world,rand,IBlockPicker.basic(BlockList.loot_chest),mpos.x,y+2,mpos.z);
+		world.setTileEntity(mpos.x,y+2,mpos.z,Meta.generateChest(entranceFrom.opposite(),getRelicGenerator()));
 	}
 }

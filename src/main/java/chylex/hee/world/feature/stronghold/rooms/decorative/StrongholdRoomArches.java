@@ -21,7 +21,7 @@ public class StrongholdRoomArches extends StrongholdRoom{
 		final int centerX = x+maxX/2, centerZ = z+maxZ/2;
 		
 		// wall layout
-		IBlockPicker placeArchTop = rand.nextInt(6) == 0 ? IBlockPicker.basic(Blocks.stonebrick,Meta.stoneBrickChiseled) : placeStoneBrickPlain;
+		IBlockPicker placeArchTop = rand.nextInt(6) == 0 ? placeStoneBrickChiseled : placeStoneBrickPlain;
 		
 		PosMutable mpos = new PosMutable();
 		
@@ -55,11 +55,9 @@ public class StrongholdRoomArches extends StrongholdRoom{
 		}
 		
 		// cobble walls
-		int wallMeta = rand.nextInt(7) == 0 ? Meta.cobbleWallMossy : Meta.cobbleWallNormal;
-		
 		for(int cornerX = 0; cornerX < 2; cornerX++){
 			for(int cornerZ = 0; cornerZ < 2; cornerZ++){
-				placeBlock(world,rand,IBlockPicker.basic(Blocks.cobblestone_wall,wallMeta),x+3+4*cornerX,y+1,z+3+4*cornerZ);
+				placeBlock(world,rand,placeStoneBrickWall,x+3+4*cornerX,y+1,z+3+4*cornerZ);
 				placeBlock(world,rand,IBlockPicker.basic(Blocks.torch,Meta.torchGround),x+3+4*cornerX,y+2,z+3+4*cornerZ);
 			}
 		}

@@ -17,13 +17,18 @@ public class TileEntityEnergyCluster extends TileEntityAbstractSynchronized{
 	private EnergyClusterData data;
 	private Pos cachedCoords;
 	private byte[] colRgb;
+	private boolean firstTick;
 	public boolean shouldNotExplode = false;
 	
 	public void generate(EnergyClusterGenerator generator, Random rand){
 		data = generator.generate(rand);
 		cachedCoords = Pos.at(xCoord,yCoord,zCoord);
-		colRgb = ArrayUtils.toPrimitive(Arrays.stream(ArrayUtils.toObject(ColorUtil.hsvToRgb(rand.nextFloat(),0.5F,0.65F))).map(color -> (byte)(Math.floor(color*255F)-128)).toArray(Byte[]::new));
+		setColor(ColorUtil.hsvToRgb(rand.nextFloat(),0.5F,0.65F));
 		synchronize();
+	}
+	
+	public void setColor(float[] rgb){
+		colRgb = ArrayUtils.toPrimitive(Arrays.stream(ArrayUtils.toObject(rgb)).map(color -> (byte)(Math.floor(color*255F)-128)).toArray(Byte[]::new));
 	}
 
 	@Override
@@ -38,7 +43,14 @@ public class TileEntityEnergyCluster extends TileEntityAbstractSynchronized{
 			if (cachedCoords.getX() != xCoord || cachedCoords.getY() != yCoord || cachedCoords.getZ() != zCoord)BlockEnergyCluster.destroyCluster(this);
 			else data.update(this);
 		}
-		else if (worldObj.rand.nextInt(4) == 0)HardcoreEnderExpansion.fx.energyCluster(this);
+		else{
+			if (!firstTick){
+				for(int a = 0; a < 12; a++)HardcoreEnderExpansion.fx.energyCluster(this);
+				firstTick = true;
+			}
+			
+			if (worldObj.rand.nextInt(4) == 0)HardcoreEnderExpansion.fx.energyCluster(this);
+		}
 		
 		shouldNotExplode = false;
 	}

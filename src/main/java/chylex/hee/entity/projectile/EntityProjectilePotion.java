@@ -1,5 +1,4 @@
 package chylex.hee.entity.projectile;
-import java.util.List;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.projectile.EntityPotion;
@@ -10,8 +9,13 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.MovingObjectPosition;
 import net.minecraft.world.World;
 import chylex.hee.item.ItemAbstractPotion;
+import chylex.hee.system.abstractions.entity.EntityDataWatcher;
+import chylex.hee.system.abstractions.entity.EntitySelector;
 
 public class EntityProjectilePotion extends EntityPotion{
+	private enum Data{ ITEM_ID }
+	
+	private EntityDataWatcher entityData;
 	private Item potionItem;
 	
 	public EntityProjectilePotion(World world){
@@ -25,7 +29,7 @@ public class EntityProjectilePotion extends EntityPotion{
 	
 	public Item getPotionItem(){
 		if (potionItem == null || potionItem == Items.potionitem){
-			if ((potionItem = Item.getItemById(dataWatcher.getWatchableObjectShort(16))) == null)potionItem = Items.potionitem;
+			if ((potionItem = Item.getItemById(entityData.getShort(Data.ITEM_ID))) == null)potionItem = Items.potionitem;
 		}
 		
 		return potionItem;
@@ -33,19 +37,21 @@ public class EntityProjectilePotion extends EntityPotion{
 	
 	@Override
 	protected void entityInit(){
-		dataWatcher.addObject(16,Short.valueOf((short)0));
+		super.entityInit();
+		entityData = new EntityDataWatcher(this);
+		entityData.addShort(Data.ITEM_ID);
 	}
 	
 	@Override
 	public void onUpdate(){
 		super.onUpdate();
-		if (ticksExisted == 1)dataWatcher.updateObject(16,(short)Item.getIdFromItem(potionItem));
+		if (ticksExisted == 1)entityData.setShort(Data.ITEM_ID,Item.getIdFromItem(potionItem));
 	}
 	
 	@Override
 	protected void onImpact(MovingObjectPosition mop){
 		if (!worldObj.isRemote && potionItem instanceof ItemAbstractPotion){
-			for(Entity entity:(List<Entity>)worldObj.getEntitiesWithinAABB(Entity.class,boundingBox.expand(4D,2D,4D))){
+			for(Entity entity:EntitySelector.any(worldObj,boundingBox.expand(4D,2D,4D))){
 				double dist = getDistanceSqToEntity(entity);
 				if (dist < 16D)((ItemAbstractPotion)potionItem).applyEffectThrown(entity,mop.entityHit == entity ? Double.MAX_VALUE : dist);
 			}

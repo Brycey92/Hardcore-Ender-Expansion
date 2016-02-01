@@ -1,11 +1,9 @@
 package chylex.hee.world.structure.island.biome;
+import gnu.trove.map.hash.TByteObjectHashMap;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Random;
 import net.minecraft.block.Block;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.stats.Achievement;
 import net.minecraft.world.World;
 import chylex.hee.init.BlockList;
@@ -17,8 +15,6 @@ import chylex.hee.world.structure.island.biome.data.AbstractBiomeInteraction.Bio
 import chylex.hee.world.structure.island.biome.data.BiomeContentVariation;
 import chylex.hee.world.structure.island.biome.data.BiomeRandomDeviation;
 import chylex.hee.world.structure.island.biome.data.IslandBiomeData;
-import chylex.hee.world.util.SpawnEntry;
-import gnu.trove.map.hash.TByteObjectHashMap;
 
 public abstract class IslandBiomeBase{
 	public static final IslandBiomeBase infestedForest = new IslandBiomeInfestedForest(0),
@@ -33,7 +29,6 @@ public abstract class IslandBiomeBase{
 	
 	public final byte biomeID;
 	
-	private final TByteObjectHashMap<WeightedList<SpawnEntry>> spawnEntries;
 	protected final TByteObjectHashMap<CustomArrayList<BiomeInteraction>> interactions;
 	protected final WeightedList<BiomeContentVariation> contentVariations;
 	protected final List<BiomeRandomDeviation> randomDeviations;
@@ -42,19 +37,9 @@ public abstract class IslandBiomeBase{
 	
 	protected IslandBiomeBase(int biomeID){
 		this.biomeID = (byte)biomeID;
-		this.spawnEntries = new TByteObjectHashMap<>();
 		this.interactions = new TByteObjectHashMap<>();
 		this.contentVariations = new WeightedList<>();
 		this.randomDeviations = new ArrayList<>();
-	}
-	
-	public Collection<WeightedList<SpawnEntry>> getAllSpawnEntries(){
-		return spawnEntries.valueCollection();
-	}
-	
-	public WeightedList<SpawnEntry> getSpawnEntries(BiomeContentVariation contentVariation){
-		spawnEntries.putIfAbsent(contentVariation.id,new WeightedList<SpawnEntry>());
-		return spawnEntries.get(contentVariation.id);
 	}
 	
 	public CustomArrayList<BiomeInteraction> getInteractions(BiomeContentVariation contentVariation){
@@ -198,13 +183,13 @@ public abstract class IslandBiomeBase{
 		}*/
 	}
 	
-	private static final boolean hasEntitySpace(World world, Entity entity){
+	/*private static final boolean hasEntitySpace(World world, Entity entity){
 		return world.checkNoEntityCollision(entity.boundingBox) && world.getCollidingBoundingBoxes(entity,entity.boundingBox).isEmpty() && !world.isAnyLiquid(entity.boundingBox);
 	}
 	
 	private static final boolean isPlayerMoving(EntityPlayer player){
 		return Math.abs(player.lastTickPosX-player.posX) > 0.0001D || Math.abs(player.lastTickPosZ-player.posZ) > 0.0001D;
-	}
+	}*/
 	
 	public float getIslandSurfaceHeightMultiplier(){
 		return 1F;

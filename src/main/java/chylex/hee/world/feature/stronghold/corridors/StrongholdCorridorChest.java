@@ -22,7 +22,7 @@ public class StrongholdCorridorChest extends StrongholdCorridorEmbedded{
 		return corridors;
 	}
 	
-	private byte variation;
+	private final int variation;
 	
 	public StrongholdCorridorChest(boolean dirX, byte variation){
 		super(dirX,new Size(dirX ? 5 : 7,5,dirX ? 7 : 5));
@@ -52,8 +52,8 @@ public class StrongholdCorridorChest extends StrongholdCorridorEmbedded{
 		z = z+maxZ/2+dir.getZ()*2;
 		
 		// chest
-		placeBlock(world,rand,IBlockPicker.basic(Blocks.chest),x,y+2,z);
-		world.setTileEntity(x,y+2,z,Meta.generateChest(dir.opposite(),generateLoot));
+		placeBlock(world,rand,placeChest,x,y+2,z);
+		world.setTileEntity(x,y+2,z,Meta.generateChest(dir.opposite(),generateLootGeneral));
 		
 		// top slabs that are shared across all patterns
 		placeLine(world,rand,IBlockPicker.basic(Blocks.stone_slab,Meta.slabStoneBrickTop),x+left.getX(),y+3,z+left.getZ(),x+right.getX(),y+3,z+right.getZ());

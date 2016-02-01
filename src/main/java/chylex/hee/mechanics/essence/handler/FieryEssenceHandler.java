@@ -1,5 +1,4 @@
 package chylex.hee.mechanics.essence.handler;
-import java.util.List;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockFurnace;
 import net.minecraft.init.Blocks;
@@ -11,6 +10,7 @@ import net.minecraft.tileentity.TileEntityBrewingStand;
 import net.minecraft.tileentity.TileEntityFurnace;
 import net.minecraft.world.World;
 import chylex.hee.api.interfaces.IAcceptFieryEssence;
+import chylex.hee.mechanics.enhancements.EnhancementList;
 import chylex.hee.mechanics.enhancements.types.EssenceAltarEnhancements;
 import chylex.hee.packets.PacketPipeline;
 import chylex.hee.packets.client.C11ParticleAltarOrb;
@@ -18,7 +18,7 @@ import chylex.hee.system.util.MathUtil;
 import chylex.hee.tileentity.TileEntityEssenceAltar;
 
 public class FieryEssenceHandler extends AltarActionHandler{
-	private byte essenceUsageCounter = -100;
+	private int essenceUsageCounter = 0;
 	
 	public FieryEssenceHandler(TileEntityEssenceAltar altar){
 		super(altar);
@@ -26,17 +26,20 @@ public class FieryEssenceHandler extends AltarActionHandler{
 	
 	@Override
 	public void onUpdate(){
-		List<Enum> enhancementList = altar.getEnhancements();
+		EnhancementList<EssenceAltarEnhancements> enhancementList = altar.getEnhancements();
 		
 		World world = altar.getWorldObj();
+		
 		int level = altar.getEssenceLevel();
+		if (level == 0)return;
+		
 		int n = 35+Math.min(60,level>>3);
 		boolean drained = false;
 		
-		int range = enhancementList.contains(EssenceAltarEnhancements.RANGE) ? 16 : 12;
+		int range = /* TODO enhancementList.contains(EssenceAltarEnhancements.RANGE) ? 16 : */12;
 		n += MathUtil.square(range-12);
 		
-		boolean hasSpeedEnh = enhancementList.contains(EssenceAltarEnhancements.SPEED);
+		boolean hasSpeedEnh = false; // TODO enhancementList.contains(EssenceAltarEnhancements.SPEED);
 		if (hasSpeedEnh)n = MathUtil.ceil(n*2.25D);
 		
 		for(int a = 0, xx, yy, zz; a < n; a++){
@@ -123,8 +126,8 @@ public class FieryEssenceHandler extends AltarActionHandler{
 	}
 	
 	private boolean tryDrainEssence(){
-		if (++essenceUsageCounter > (altar.getEnhancements().contains(EssenceAltarEnhancements.EFFICIENCY) ? 120 : 30)){
-			essenceUsageCounter = -120;
+		if (++essenceUsageCounter > (/* TODO altar.getEnhancements().contains(EssenceAltarEnhancements.EFFICIENCY) ? 220 : */130)){
+			essenceUsageCounter = -20;
 			altar.drainEssence(1);
 			return true;
 		}
@@ -138,12 +141,12 @@ public class FieryEssenceHandler extends AltarActionHandler{
 	
 	@Override
 	public void onTileWriteToNBT(NBTTagCompound nbt){
-		nbt.setByte("F_essenceUsageCnt",essenceUsageCounter);
+		nbt.setShort("F_essenceUsageCnt",(short)essenceUsageCounter);
 	}
 	
 	@Override
 	public void onTileReadFromNBT(NBTTagCompound nbt){
-		essenceUsageCounter = nbt.getByte("F_essenceUsageCnt");
+		essenceUsageCounter = nbt.getShort("F_essenceUsageCnt");
 	}
 	
 	// TileEntityFurnace.canSmelt()

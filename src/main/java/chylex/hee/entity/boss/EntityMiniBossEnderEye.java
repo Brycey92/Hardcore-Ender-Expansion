@@ -5,7 +5,6 @@ import net.minecraft.block.material.Material;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityFlying;
 import net.minecraft.entity.EntityLivingBase;
-import net.minecraft.entity.SharedMonsterAttributes;
 import net.minecraft.entity.boss.IBossDisplayData;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.Blocks;
@@ -18,7 +17,6 @@ import net.minecraft.util.StatCollector;
 import net.minecraft.world.World;
 import chylex.hee.entity.GlobalMobData.IIgnoreEnderGoo;
 import chylex.hee.entity.RandomNameGenerator;
-import chylex.hee.entity.mob.util.DamageSourceMobUnscaled;
 import chylex.hee.game.achievements.AchievementManager;
 import chylex.hee.init.BlockList;
 import chylex.hee.init.ItemList;
@@ -26,12 +24,21 @@ import chylex.hee.packets.PacketPipeline;
 import chylex.hee.packets.client.C07AddPlayerVelocity;
 import chylex.hee.packets.client.C08PlaySound;
 import chylex.hee.proxy.ModCommonProxy;
-import chylex.hee.system.util.BlockPosM;
+import chylex.hee.system.abstractions.Pos.PosMutable;
+import chylex.hee.system.abstractions.Vec;
+import chylex.hee.system.abstractions.entity.EntityAttributes;
+import chylex.hee.system.abstractions.entity.EntityDataWatcher;
+import chylex.hee.system.abstractions.entity.EntitySelector;
 import chylex.hee.system.util.DragonUtil;
 import chylex.hee.system.util.MathUtil;
+import chylex.hee.system.util.WorldUtil;
+import chylex.hee.system.util.WorldUtil.GameRule;
 import chylex.hee.tileentity.TileEntityLaserBeam;
 
 public class EntityMiniBossEnderEye extends EntityFlying implements IBossDisplayData, IIgnoreEnderGoo{
+	private enum Data{ ASLEEP, ANIMATION_TIME }
+	
+	private EntityDataWatcher entityData;
 	private byte sleepTimer, healTimer, attackTimer;
 	private short laserTopY;
 	private AttackType attackType, lastAttackType;
@@ -56,15 +63,16 @@ public class EntityMiniBossEnderEye extends EntityFlying implements IBossDisplay
 	@Override
 	protected void entityInit(){
 		super.entityInit();
-		dataWatcher.addObject(16,Byte.valueOf((byte)1));
-		dataWatcher.addObject(17,Byte.valueOf((byte)0));
+		entityData = new EntityDataWatcher(this);
+		entityData.addBoolean(Data.ASLEEP,true);
+		entityData.addByte(Data.ANIMATION_TIME);
 	}
 	
 	@Override
 	protected void applyEntityAttributes(){
 		super.applyEntityAttributes();
-		getEntityAttribute(SharedMonsterAttributes.maxHealth).setBaseValue(ModCommonProxy.opMobs ? 350D : 250D);
-		getEntityAttribute(SharedMonsterAttributes.movementSpeed).setBaseValue(1.8D);
+		EntityAttributes.setValue(this,EntityAttributes.maxHealth,ModCommonProxy.opMobs ? 350D : 250D);
+		EntityAttributes.setValue(this,EntityAttributes.movementSpeed,1.8D);
 		
 	}
 	
@@ -92,14 +100,14 @@ public class EntityMiniBossEnderEye extends EntityFlying implements IBossDisplay
 					attackType = null;
 				}
 				else{
-					List<EntityPlayer> nearPlayers = worldObj.getEntitiesWithinAABB(EntityPlayer.class,boundingBox.expand(8D,4D,8D));
+					List<EntityPlayer> nearPlayers = EntitySelector.players(worldObj,boundingBox.expand(8D,4D,8D));
 					
 					if (!nearPlayers.isEmpty()){
 						target = nearPlayers.get(0);
 						sleepTimer = 0;
 					}
 					
-					attackTimer = (byte)(-65+rand.nextInt(15));
+					attackTimer = (byte)(-65+rand.nextInt(15)); // TODO fix this mess
 				}
 			}
 			else if (getDistanceSqToEntity(target) < 60D){
@@ -134,34 +142,29 @@ public class EntityMiniBossEnderEye extends EntityFlying implements IBossDisplay
 					 */
 					if (attackType == AttackType.Poof){
 						if (attackAnim == 34){
-							if (worldObj.getGameRules().getGameRuleBooleanValue("mobGriefing")){
-								BlockPosM tmpPos = BlockPosM.tmp();
+							if (WorldUtil.getRuleBool(worldObj,GameRule.MOB_GRIEFING)){
+								PosMutable mpos = new PosMutable();
 								
 								for(int a = 0, hits = 0; a < 200 && hits < 16+worldObj.difficultySetting.getDifficultyId(); a++){
-									Block block = tmpPos.set(this).move(rand.nextInt(15)-7,rand.nextInt(8)-4,rand.nextInt(15)-7).getBlock(worldObj);
+									Block block = mpos.set(this).move(rand.nextInt(15)-7,rand.nextInt(8)-4,rand.nextInt(15)-7).getBlock(worldObj);
 									
-									if (block.getMaterial() != Material.air && block.getBlockHardness(worldObj,tmpPos.x,tmpPos.y,tmpPos.z) != -1F){
-										tmpPos.setAir(worldObj);
-										worldObj.playAuxSFX(2001,tmpPos.x,tmpPos.y,tmpPos.z,Block.getIdFromBlock(Blocks.obsidian));
+									if (block.getMaterial() != Material.air && block.getBlockHardness(worldObj,mpos.x,mpos.y,mpos.z) != -1F){
+										mpos.setAir(worldObj);
+										worldObj.playAuxSFX(2001,mpos.x,mpos.y,mpos.z,Block.getIdFromBlock(Blocks.obsidian));
 										++hits;
 									}
 								}
 							}
 							
-							for(EntityPlayer player:(List<EntityPlayer>)worldObj.getEntitiesWithinAABB(EntityPlayer.class,boundingBox.expand(6D,6D,6D))){
-								double[] vec = DragonUtil.getNormalizedVector(player.posX-posX,player.posZ-posZ);
+							for(EntityPlayer player:EntitySelector.players(worldObj,boundingBox.expand(6D,6D,6D))){
+								Vec vec = Vec.between(this,player).normalized().multiplied(player.isBlocking() ? 1.4D : 2.4D);
 								
-								boolean blocking = player.isBlocking();
-								vec[0] *= (blocking ? 1.4D : 2.4D);
-								vec[1] *= (blocking ? 1.4D : 2.4D);
-								
-								PacketPipeline.sendToPlayer(player,new C07AddPlayerVelocity(vec[0],0.34D,vec[1]));
-								
-								player.motionX += vec[0];
+								PacketPipeline.sendToPlayer(player,new C07AddPlayerVelocity(vec.x,0.34D,vec.z));
+								player.motionX += vec.x;
 								player.motionY += 0.34D;
-								player.motionZ += vec[1];
+								player.motionZ += vec.z;
 								
-								player.attackEntityFrom(new DamageSourceMobUnscaled(this),DamageSourceMobUnscaled.getDamage(ModCommonProxy.opMobs ? 7F : 4F,worldObj.difficultySetting));
+								// TODO player.attackEntityFrom(new DamageSourceMobUnscaled(this),DamageSourceMobUnscaled.getDamage(ModCommonProxy.opMobs ? 7F : 4F,worldObj.difficultySetting));
 							}
 							
 							PacketPipeline.sendToAllAround(this,64D,new C08PlaySound(C08PlaySound.ENDEREYE_ATTACK_POOF,posX,posY,posZ,1F,rand.nextFloat()*0.2F+0.9F));
@@ -172,19 +175,15 @@ public class EntityMiniBossEnderEye extends EntityFlying implements IBossDisplay
 					 */
 					else if (attackType == AttackType.Nausea){
 						if (attackAnim == 17){
-							PotionEffect effNausea = new PotionEffect(Potion.confusion.id,220,0,true);
-							for(EntityPlayer player:(List<EntityPlayer>)worldObj.getEntitiesWithinAABB(EntityPlayer.class,boundingBox.expand(6D,6D,6D)))player.addPotionEffect(effNausea);
+							for(EntityPlayer player:EntitySelector.players(worldObj,boundingBox.expand(6D,6D,6D)))player.addPotionEffect(new PotionEffect(Potion.confusion.id,220,0,true));
 						}
 						else if (attackAnim == 19){
 							PacketPipeline.sendToAllAround(this,64D,new C08PlaySound(C08PlaySound.ENDEREYE_ATTACK_CONFUSION,posX,posY,posZ,1F,rand.nextFloat()*0.2F+0.9F));
 						}
 						else if (attackAnim == 26){
-							PotionEffect effBlind = new PotionEffect(Potion.blindness.id,160,0,true),
-										 effSlow = new PotionEffect(Potion.moveSlowdown.id,120,0,true);
-							
-							for(EntityPlayer player:(List<EntityPlayer>)worldObj.getEntitiesWithinAABB(EntityPlayer.class,boundingBox.expand(6D,6D,6D))){
-								player.addPotionEffect(effBlind);
-								player.addPotionEffect(effSlow);
+							for(EntityPlayer player:EntitySelector.players(worldObj,boundingBox.expand(6D,6D,6D))){
+								player.addPotionEffect(new PotionEffect(Potion.blindness.id,160,0,true));
+								player.addPotionEffect(new PotionEffect(Potion.moveSlowdown.id,120,0,true));
 							}
 						}
 					}
@@ -193,32 +192,31 @@ public class EntityMiniBossEnderEye extends EntityFlying implements IBossDisplay
 					 */
 					else if (attackType == AttackType.LaserBeams){
 						if (attackAnim > 35 && attackAnim < 99 && attackAnim%7 == 0){
-							BlockPosM tmpPos = BlockPosM.tmp(this);
+							PosMutable mpos = new PosMutable();
 							int myY = MathUtil.floor(posY), attempt, minY;
 							
 							for(attempt = 0; attempt < 12; attempt++){
-								tmpPos.set(MathUtil.floor(posX)+rand.nextInt(17)-8,-1,MathUtil.floor(posZ)+rand.nextInt(17)-8);
+								mpos.set(this).move(rand.nextInt(17)-8,0,rand.nextInt(17)-8).setY(myY);
 								
-								if (!tmpPos.setY(myY).isAir(worldObj))continue;
+								if (!mpos.isAir(worldObj))continue;
 								
-								for(tmpPos.y = myY; tmpPos.y > myY-6; tmpPos.y--){
-									if (!tmpPos.isAir(worldObj))break;
-									else if (tmpPos.y == myY-4){
-										tmpPos.y = -1;
+								for(mpos.y = myY; mpos.y > myY-6; mpos.y--){
+									if (!mpos.isAir(worldObj))break;
+									else if (mpos.y == myY-4){
+										mpos.y = -1;
 										break;
 									}
 								}
 								
-								if (tmpPos.y == -1)continue;
-								minY = tmpPos.y;
+								if (mpos.y == -1)continue;
+								minY = mpos.y;
 								
 								if (laserTopY == 0)laserTopY = (short)(myY+8);
 								
-								for(tmpPos.y = minY+1; tmpPos.y < laserTopY; tmpPos.y++){
-									if (!tmpPos.isAir(worldObj))break;
-									tmpPos.setBlock(worldObj,BlockList.laser_beam);
-									TileEntityLaserBeam beam = (TileEntityLaserBeam)tmpPos.getTileEntity(worldObj);
-									if (beam != null)beam.setTicksLeft(102-attackAnim);
+								for(mpos.y = minY+1; mpos.y < laserTopY; mpos.y++){
+									if (!mpos.isAir(worldObj))break;
+									mpos.setBlock(worldObj,BlockList.laser_beam);
+									mpos.castTileEntity(worldObj,TileEntityLaserBeam.class).ifPresent(beam -> beam.setTicksLeft(102-attackAnim));
 								}
 								
 								PacketPipeline.sendToAllAround(this,64D,new C08PlaySound(C08PlaySound.ENDEREYE_ATTACK_LASER_ADD,posX,posY,posZ,0.85F,rand.nextFloat()*0.1F+0.95F));
@@ -239,8 +237,8 @@ public class EntityMiniBossEnderEye extends EntityFlying implements IBossDisplay
 					double yD = (posY+height*0.5F)-(target.boundingBox.minY+target.height+0.4D);
 					if (Math.abs(yD) >= 0.8D)motionY -= Math.abs(yD)*0.005D*Math.signum(yD);
 					
-					if (distance >= 3D)setMoveForward((float)getEntityAttribute(SharedMonsterAttributes.movementSpeed).getAttributeValue());
-					else if (Math.abs(yD) < 1D)target.attackEntityFrom(new DamageSourceMobUnscaled(this),DamageSourceMobUnscaled.getDamage(ModCommonProxy.opMobs ? 6F : 3F,worldObj.difficultySetting));
+					if (distance >= 3D)setMoveForward((float)EntityAttributes.getValue(this,EntityAttributes.movementSpeed));
+					else if (Math.abs(yD) < 1D)/*TODO*/;//target.attackEntityFrom(new DamageSourceMobUnscaled(this),DamageSourceMobUnscaled.getDamage(ModCommonProxy.opMobs ? 6F : 3F,worldObj.difficultySetting));
 					
 					if (target.isDead)target = null;
 				}
@@ -259,19 +257,19 @@ public class EntityMiniBossEnderEye extends EntityFlying implements IBossDisplay
 			setIsAsleep(false);
 			
 			if (worldObj.difficultySetting.getDifficultyId() > 1 || ModCommonProxy.opMobs){
-				BlockPosM tmpPos = BlockPosM.tmp();
+				PosMutable mpos = new PosMutable();
 				
 				for(int a = 0, hits = 0, x, y, z; a < 400 && hits < 5+worldObj.difficultySetting.getDifficultyId()*10+(ModCommonProxy.opMobs ? 30 : 0); a++){
-					tmpPos.set(posX+rand.nextInt(15)-7,posY+rand.nextInt(8)-4,posZ+rand.nextInt(15)-7);
+					mpos.set(this).move(rand.nextInt(15)-7,rand.nextInt(8)-4,rand.nextInt(15)-7);
 					
-					Block block = tmpPos.getBlock(worldObj);
+					Block block = mpos.getBlock(worldObj);
 					
 					if (block != Blocks.air){
-						float hardness = block.getBlockHardness(worldObj,tmpPos.x,tmpPos.y,tmpPos.z);
+						float hardness = block.getBlockHardness(worldObj,mpos.x,mpos.y,mpos.z);
 						
 						if (hardness != -1F && hardness <= 5F){
-							tmpPos.setAir(worldObj);
-							worldObj.playAuxSFX(2001,tmpPos.x,tmpPos.y,tmpPos.z,Block.getIdFromBlock(Blocks.obsidian));
+							mpos.setAir(worldObj);
+							worldObj.playAuxSFX(2001,mpos.x,mpos.y,mpos.z,Block.getIdFromBlock(Blocks.obsidian));
 							++hits;
 						}
 					}
@@ -335,19 +333,19 @@ public class EntityMiniBossEnderEye extends EntityFlying implements IBossDisplay
 	}
 	
 	public void setIsAsleep(boolean isAsleep){
-		dataWatcher.updateObject(16,Byte.valueOf((byte)(isAsleep ? 1 : 0)));
+		entityData.setBoolean(Data.ASLEEP,isAsleep);
 	}
 	
 	public boolean isAsleep(){
-		return dataWatcher.getWatchableObjectByte(16) != 0;
+		return entityData.getBoolean(Data.ASLEEP);
 	}
 	
 	public void setAttackAnimationTime(byte time){
-		dataWatcher.updateObject(17,time);
+		entityData.setByte(Data.ANIMATION_TIME,time);
 	}
 	
 	public byte getAttackAnimationTime(){
-		return dataWatcher.getWatchableObjectByte(17);
+		return entityData.getByte(Data.ANIMATION_TIME);
 	}
 
 	@Override
@@ -357,7 +355,7 @@ public class EntityMiniBossEnderEye extends EntityFlying implements IBossDisplay
 
 	@Override
 	protected String getLivingSound(){
-		return isAsleep()?null:"hardcoreenderexpansion:mob.endereye.living";
+		return isAsleep() ? null : "hardcoreenderexpansion:mob.endereye.living";
 	}
 
 	@Override
@@ -394,7 +392,7 @@ enum AttackType{
 	Nausea(1,32),
 	LaserBeams(2,104);
 	
-	private byte id,length;
+	private byte id, length;
 	
 	AttackType(int id, int length){
 		this.id = (byte)id;

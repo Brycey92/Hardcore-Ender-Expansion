@@ -1,11 +1,15 @@
 package chylex.hee.system.abstractions.facing;
+import java.util.Random;
 import net.minecraft.util.EnumFacing;
-import chylex.hee.system.abstractions.facing.IFacing;
 
 public enum Facing4 implements IFacing{
 	NORTH_NEGZ, SOUTH_POSZ, WEST_NEGX, EAST_POSX, INVALID;
 	
 	public static final Facing4[] list = new Facing4[]{ NORTH_NEGZ, SOUTH_POSZ, WEST_NEGX, EAST_POSX };
+	
+	public static final Facing4 random(Random rand){
+		return list[rand.nextInt(list.length)];
+	}
 	
 	public Facing4 opposite(){
 		switch(this){
@@ -67,6 +71,16 @@ public enum Facing4 implements IFacing{
 			case SOUTH_POSZ: return EnumFacing.SOUTH;
 			case EAST_POSX: return EnumFacing.WEST; // wtf
 			default: return EnumFacing.DOWN; // 1.8 fix the wtfs
+		}
+	}
+	
+	public Facing6 toFacing6(){
+		switch(this){
+			case NORTH_NEGZ: return Facing6.NORTH_NEGZ;
+			case WEST_NEGX: return Facing6.WEST_NEGX;
+			case SOUTH_POSZ: return Facing6.SOUTH_POSZ;
+			case EAST_POSX: return Facing6.EAST_POSX;
+			default: return Facing6.INVALID;
 		}
 	}
 	

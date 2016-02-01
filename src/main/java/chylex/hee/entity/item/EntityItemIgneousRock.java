@@ -2,7 +2,6 @@ package chylex.hee.entity.item;
 import java.util.IdentityHashMap;
 import net.minecraft.block.Block;
 import net.minecraft.block.material.Material;
-import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.Blocks;
@@ -19,7 +18,9 @@ import chylex.hee.entity.technical.EntityTechnicalPuzzleChain;
 import chylex.hee.init.BlockList;
 import chylex.hee.packets.PacketPipeline;
 import chylex.hee.packets.client.C20Effect;
+import chylex.hee.system.abstractions.Explosion;
 import chylex.hee.system.abstractions.Pos;
+import chylex.hee.system.abstractions.entity.EntitySelector;
 import chylex.hee.system.abstractions.facing.Facing4;
 import chylex.hee.system.collections.CollectionUtil;
 import chylex.hee.system.util.MathUtil;
@@ -41,8 +42,8 @@ public class EntityItemIgneousRock extends EntityItem{
 		blockTransformations.put(Blocks.sand, Blocks.glass);
 	}
 	
-	private short rockLife = 700;
-	private byte thrownDirection;
+	private int rockLife = 700;
+	private int thrownDirection;
 	
 	public EntityItemIgneousRock(World world){
 		super(world);
@@ -52,7 +53,7 @@ public class EntityItemIgneousRock extends EntityItem{
 		super(world,x,y,z,is);
 		
 		EntityPlayer thrower = world.getClosestPlayer(x,y-1.62D,z,1D);
-		if (thrower != null)thrownDirection = (byte)(MathHelper.floor_double((thrower.rotationYaw*4F/360F)+0.5D)&3);
+		if (thrower != null)thrownDirection = MathHelper.floor_double((thrower.rotationYaw*4F/360F)+0.5D)&3;
 	}
 
 	@Override
@@ -61,7 +62,7 @@ public class EntityItemIgneousRock extends EntityItem{
 		
 		if (!worldObj.isRemote){
 			ItemStack is = getEntityItem();
-			if ((rockLife -= rand.nextInt(isInWater()?5:3)) < 0){
+			if ((rockLife -= rand.nextInt(isInWater() ? 5 : 3)) < 0){
 				if (--is.stackSize == 0)setDead();
 				else{
 					rockLife = 700;
@@ -84,8 +85,9 @@ public class EntityItemIgneousRock extends EntityItem{
 					}
 					else if (block == Blocks.tnt){
 						pos.setAir(worldObj);
-						worldObj.createExplosion(null,pos.getX(),pos.getY(),pos.getZ(),3.9F,true);
+						new Explosion(worldObj,pos.getX()+0.5D,pos.getY()+0.5D,pos.getZ()+0.5D,3.9F,null).trigger();
 					}
+					// TODO enhanced tnt
 					else if (block == Blocks.tallgrass && pos.getMetadata(worldObj) != 0){
 						pos.setMetadata(worldObj,0,2);
 					}
@@ -100,7 +102,7 @@ public class EntityItemIgneousRock extends EntityItem{
 			}
 			
 			if (rand.nextInt(80-Math.min(32,is.stackSize/3)) == 0){
-				CollectionUtil.<EntityLivingBase>random(worldObj.getEntitiesWithinAABB(EntityLivingBase.class,boundingBox.expand(3D,3D,3D)),rand).ifPresent(entity -> {
+				CollectionUtil.random(EntitySelector.living(worldObj,boundingBox.expand(3D,3D,3D)),rand).ifPresent(entity -> {
 					entity.setFire(1+rand.nextInt(4)+getEntityItem().stackSize/10);
 				});
 			}
@@ -135,12 +137,12 @@ public class EntityItemIgneousRock extends EntityItem{
 	@Override
 	public void writeEntityToNBT(NBTTagCompound nbt){
 		super.writeEntityToNBT(nbt);
-		nbt.setShort("rockLife",rockLife);
+		nbt.setShort("rockLife",(short)rockLife);
 	}
 
 	@Override
 	public void readEntityFromNBT(NBTTagCompound nbt){
 		super.readEntityFromNBT(nbt);
-		rockLife = nbt.hasKey("rockLife") ? nbt.getShort("rockLife") : rockLife;
+		rockLife = nbt.getShort("rockLife");
 	}
 }

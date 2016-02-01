@@ -24,9 +24,10 @@ import chylex.hee.packets.PacketPipeline;
 import chylex.hee.packets.client.C20Effect;
 import chylex.hee.system.abstractions.Pos;
 import chylex.hee.system.abstractions.Pos.PosMutable;
+import chylex.hee.system.abstractions.entity.EntitySelector;
 import chylex.hee.system.abstractions.facing.Facing4;
+import chylex.hee.system.collections.CollectionUtil;
 import chylex.hee.system.logging.Stopwatch;
-import chylex.hee.system.util.MathUtil;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
@@ -121,7 +122,7 @@ public class BlockDungeonPuzzle extends Block implements IBlockSubtypes{
 	}
 	
 	public void checkWinConditions(World world, Pos pos){
-		if (world.getEntitiesWithinAABB(EntityTechnicalPuzzleChain.class,Pos.getBoundingBox(pos,pos).expand(maxDungeonSize-0.5D,0D,maxDungeonSize-0.5D)).size() == 1){
+		if (EntitySelector.type(world,EntityTechnicalPuzzleChain.class,Pos.getBoundingBox(pos,pos).expand(maxDungeonSize-0.5D,0D,maxDungeonSize-0.5D)).size() == 1){
 			int y = pos.getY(), x = pos.getX(), z = pos.getZ(), minX = x, minZ = z, maxX = x, maxZ = z, cnt = 0;
 			PosMutable mpos = new PosMutable();
 			boolean isFinished = true;
@@ -236,7 +237,7 @@ public class BlockDungeonPuzzle extends Block implements IBlockSubtypes{
 	
 	@Override
 	public String getUnlocalizedName(ItemStack is){
-		String name = names[MathUtil.clamp(is.getItemDamage(),0,names.length-1)];
+		String name = CollectionUtil.getClamp(names,is.getItemDamage());
 		return name == null ? "" : "tile.dungeonPuzzle."+name;
 	}
 	

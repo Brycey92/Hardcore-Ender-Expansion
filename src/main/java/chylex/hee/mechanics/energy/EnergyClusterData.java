@@ -12,9 +12,9 @@ public final class EnergyClusterData{
 	private EnergyClusterHealth health = EnergyClusterHealth.HEALTHY;
 	
 	private float regenAmount;
-	private byte regenTimeLimit;
+	private int regenTimeLimit;
 	
-	private byte regenTimer;
+	private int regenTimer;
 	private boolean resync;
 	
 	public EnergyClusterData(){}
@@ -28,8 +28,8 @@ public final class EnergyClusterData{
 		this.maxEnergyLevel = maxEnergyLevel;
 		this.health = health;
 		
-		this.regenAmount = (float)(Math.pow(1F+maxEnergyLevel,0.1D)-1F)*health.regenAmountMp;
-		this.regenTimeLimit = (byte)(20F/health.regenSpeedMp);
+		this.regenAmount = (float)(Math.pow(1F+maxEnergyLevel,0.004D)-0.997F)*0.5F*health.regenAmountMp;
+		this.regenTimeLimit = MathUtil.floor(20F/health.regenSpeedMp);
 	}
 	
 	public void update(TileEntityEnergyCluster cluster){
@@ -43,16 +43,19 @@ public final class EnergyClusterData{
 		}
 		
 		if (health.leakChance != 0F && rand.nextFloat() < health.leakChance){ // direct comparison is fine here
-			float leak = Math.min(energyLevel,0.5F+rand.nextFloat()*0.5F)*(float)(Math.pow(maxEnergyLevel,0.12F)+Math.pow(energyLevel,0.05F)-2);
-			energyLevel -= leak;
-			cluster.synchronize();
+			float leak = Math.max(0F,Math.min(energyLevel,0.5F+rand.nextFloat()*0.5F)*(float)(Math.pow(1F+maxEnergyLevel,0.12F)+Math.pow(energyLevel,0.05F)-2));
 			
-			for(int attempt = 0; attempt < 10; attempt++){
-				Pos testPos = Pos.at(cluster).offset(rand.nextInt(5)-2,rand.nextInt(5)-2,rand.nextInt(5)-2);
+			if (leak > 0F){
+				energyLevel -= leak;
+				cluster.synchronize();
 				
-				if (testPos.isAir(world)){
-					testPos.setBlock(world,BlockCorruptedEnergy.getCorruptedEnergy(2+MathUtil.floor(leak*9F)));
-					break;
+				for(int attempt = 0; attempt < 10; attempt++){
+					Pos testPos = Pos.at(cluster).offset(rand.nextInt(5)-2,rand.nextInt(5)-2,rand.nextInt(5)-2);
+					
+					if (testPos.isAir(world)){
+						testPos.setBlock(world,BlockCorruptedEnergy.getCorruptedEnergy(2+MathUtil.floor(leak*9F)));
+						break;
+					}
 				}
 			}
 		}
@@ -67,12 +70,20 @@ public final class EnergyClusterData{
 		return energyLevel;
 	}
 	
+	public int getEnergyUnits(){
+		return MathUtil.floor(energyLevel/EnergyValues.unit);
+	}
+	
 	public float getMaxLevel(){
 		return maxEnergyLevel;
 	}
 	
 	public EnergyClusterHealth getHealth(){
 		return health;
+	}
+	
+	public void weaken(){
+		health = EnergyClusterHealth.values[MathUtil.clamp(health.ordinal()+1,0,EnergyClusterHealth.values.length-1)];
 	}
 	
 	public boolean drainUnit(){
@@ -82,7 +93,7 @@ public final class EnergyClusterData{
 	public boolean drainUnits(int units){
 		if (energyLevel >= EnergyValues.unit*units){
 			energyLevel -= EnergyValues.unit*units;
-			regenTimer = (byte)-(40F/health.regenSpeedMp);
+			regenTimer = -MathUtil.floor(40F/health.regenSpeedMp);
 			resync = true;
 			return true;
 		}
@@ -93,11 +104,9 @@ public final class EnergyClusterData{
 		nbt.setByte("status",(byte)health.ordinal());
 		nbt.setFloat("lvl",energyLevel);
 		nbt.setFloat("max",maxEnergyLevel);
-		nbt.setByte("tim",regenTimer);
 	}
 	
 	public void readFromNBT(NBTTagCompound nbt){
 		setData(nbt.getFloat("lvl"),nbt.getFloat("max"),EnergyClusterHealth.values[MathUtil.clamp(nbt.getByte("status"),0,EnergyClusterHealth.values.length-1)]);
-		regenTimer = nbt.getByte("tim");
 	}
 }

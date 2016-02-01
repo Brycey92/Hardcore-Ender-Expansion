@@ -1,31 +1,28 @@
 package chylex.hee.mechanics.compendium.events;
 import java.util.List;
+import javax.annotation.Nullable;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.client.resources.I18n;
+import net.minecraft.client.settings.GameSettings;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.inventory.Slot;
-import net.minecraft.stats.Achievement;
 import net.minecraft.util.ChatComponentText;
+import net.minecraft.util.StatCollector;
+import org.apache.commons.lang3.StringUtils;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 import chylex.hee.HardcoreEnderExpansion;
 import chylex.hee.game.achievements.AchievementManager;
 import chylex.hee.game.save.types.player.CompendiumFile;
-import chylex.hee.gui.ContainerEndPowderEnhancements;
 import chylex.hee.gui.GuiEnderCompendium;
-import chylex.hee.mechanics.compendium.KnowledgeRegistrations;
 import chylex.hee.mechanics.compendium.content.KnowledgeObject;
-import chylex.hee.mechanics.compendium.objects.IKnowledgeObjectInstance;
-import chylex.hee.mechanics.compendium.util.KnowledgeUtils;
-import chylex.hee.packets.PacketPipeline;
-import chylex.hee.packets.server.S03SimpleEvent;
-import chylex.hee.packets.server.S03SimpleEvent.EventType;
+import chylex.hee.mechanics.compendium.content.objects.IObjectHolder;
 import chylex.hee.proxy.ModCommonProxy;
-import chylex.hee.system.logging.Stopwatch;
+import chylex.hee.render.OverlayManager;
+import chylex.hee.system.util.GameRegistryUtil;
 import cpw.mods.fml.client.registry.ClientRegistry;
-import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.PlayerEvent.PlayerLoggedInEvent;
 import cpw.mods.fml.common.gameevent.TickEvent.ClientTickEvent;
@@ -34,22 +31,19 @@ import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
 @SideOnly(Side.CLIENT)
-public final class CompendiumEventsClient{
+public class CompendiumEventsClient{
+	private static final Minecraft mc = Minecraft.getMinecraft();
 	private static CompendiumEventsClient instance;
 	
 	public static void register(){
-		if (instance == null)FMLCommonHandler.instance().bus().register(instance = new CompendiumEventsClient());
+		GameRegistryUtil.registerEventHandler(instance = new CompendiumEventsClient());
 	}
 	
 	public static void loadClientData(CompendiumFile file){
 		instance.data = file;
 		
-		if (Minecraft.getMinecraft().currentScreen instanceof GuiEnderCompendium){
-			((GuiEnderCompendium)Minecraft.getMinecraft().currentScreen).updateCompendiumData(file);
-		}
-		
-		if (Minecraft.getMinecraft().thePlayer.openContainer instanceof ContainerEndPowderEnhancements){
-			((ContainerEndPowderEnhancements)Minecraft.getMinecraft().thePlayer.openContainer).updateClientItems();
+		if (mc.currentScreen instanceof GuiEnderCompendium){
+			((GuiEnderCompendium)mc.currentScreen).updateCompendiumData(file);
 		}
 	}
 	
@@ -65,80 +59,68 @@ public final class CompendiumEventsClient{
 		else return true;
 	}
 	
-	public static void openCompendium(KnowledgeObject<? extends IKnowledgeObjectInstance<?>> obj){
+	public static void openCompendium(@Nullable KnowledgeObject<? extends IObjectHolder<?>> obj){
 		GuiEnderCompendium compendium = new GuiEnderCompendium(instance.data);
 		Minecraft.getMinecraft().displayGuiScreen(compendium);
 		
 		if (obj != null){
-			compendium.showObject(obj);
+			compendium.showObject(obj); // TODO show most recent fragment
 			compendium.moveToCurrentObject(false);
 		}
-		else if (!instance.data.seenHelp())compendium.showObject(KnowledgeRegistrations.HELP);
+		
+		if (Minecraft.getSystemTime()-instance.displayedHintTime <= 9000L){
+			OverlayManager.getAchievementOverlay().hide();
+		}
 	}
 	
-	public static int getCompendiumKeyCode(){
-		return instance.keyOpenCompendium.getKeyCode();
-	}
-	
-	public static void onObjectDiscovered(int objectID){
-		instance.newlyDiscoveredId = (short)objectID;
-		instance.newlyDiscoveredTime = System.nanoTime();
-	}
-	
-	public static void showCompendiumAchievement(){
-		instance.displayAchievement(AchievementManager.ENDER_COMPENDIUM);
+	public static void displayCompendiumHint(){
+		String title = I18n.format("ec.overlay.hint.title");
+		String desc = StringUtils.replaceOnce(I18n.format("ec.overlay.hint.desc"),"$",GameSettings.getKeyDisplayString(instance.keyOpenCompendium.getKeyCode()));
+		
+		OverlayManager.getAchievementOverlay().displayLiteral(title,desc,9000L);
+		instance.displayedHintTime = Minecraft.getSystemTime();
 	}
 	
 	private final KeyBinding keyOpenCompendium;
 	private CompendiumFile data;
-	private short newlyDiscoveredId = -1;
-	private long newlyDiscoveredTime = 0L;
-	private byte achievementTimer = Byte.MIN_VALUE;
+	private long displayedHintTime;
 	
 	private CompendiumEventsClient(){
 		keyOpenCompendium = new KeyBinding(ModCommonProxy.hardcoreEnderbacon ? "key.openCompendium.bacon" : "key.openCompendium",25,"Hardcore Ender Expansion");
 		ClientRegistry.registerKeyBinding(keyOpenCompendium);
-		Minecraft.getMinecraft().gameSettings.loadOptions();
-	}
-	
-	private void displayAchievement(Achievement achievement){
-		Minecraft.getMinecraft().guiAchievement.func_146255_b(achievement);
-		instance.achievementTimer = 120;
+		mc.gameSettings.loadOptions();
+		
+		AchievementManager.ENDER_COMPENDIUM.setStatStringFormatter(str -> {
+			if (ModCommonProxy.hardcoreEnderbacon)str = StatCollector.translateToLocal("achievement.enderCompendium.desc.bacon");
+			return StringUtils.replaceOnce(str,"$",GameSettings.getKeyDisplayString(keyOpenCompendium.getKeyCode()));
+		});
 	}
 	
 	@SubscribeEvent
 	public void onPlayerLogin(PlayerLoggedInEvent e){
-		Stopwatch.time("CompendiumEventsClient - key conflict check");
-		
-		for(KeyBinding kb:Minecraft.getMinecraft().gameSettings.keyBindings){
+		for(KeyBinding kb:mc.gameSettings.keyBindings){
 			if (kb != instance.keyOpenCompendium && kb.getKeyCode() == instance.keyOpenCompendium.getKeyCode()){
-				HardcoreEnderExpansion.notifications.report(I18n.format("key.openCompendium.conflict").replace("$",I18n.format(kb.getKeyDescription())));
+				HardcoreEnderExpansion.notifications.report(StringUtils.replaceOnce(I18n.format("key.openCompendium.conflict"),"$",I18n.format(kb.getKeyDescription())));
 				break;
 			}
 		}
-
-		Stopwatch.finish("CompendiumEventsClient - key conflict check");
 	}
 	
 	@SubscribeEvent
 	public void onClientTick(ClientTickEvent e){
 		if (e.phase != Phase.START)return;
 		
-		Minecraft mc = Minecraft.getMinecraft();
-		
-		if (achievementTimer > Byte.MIN_VALUE && --achievementTimer == Byte.MIN_VALUE)Minecraft.getMinecraft().guiAchievement.func_146257_b();
-		
 		if ((keyOpenCompendium.isPressed() || Keyboard.getEventKeyState() && Keyboard.getEventKey() == keyOpenCompendium.getKeyCode()) && (mc.inGameHasFocus || mc.currentScreen instanceof GuiContainer)){
 			if (canOpenCompendium()){
-				KnowledgeObject<? extends IKnowledgeObjectInstance<?>> obj = null;
+				KnowledgeObject<? extends IObjectHolder<?>> obj = null;
 				
 				if (mc.inGameHasFocus){
-					if (newlyDiscoveredTime != 0L && System.nanoTime()-newlyDiscoveredTime <= 7000000000L){
+					/* TODO if (newlyDiscoveredTime != 0L && System.nanoTime()-newlyDiscoveredTime <= 7000000000L){
 						obj = KnowledgeObject.getObjectById(newlyDiscoveredId);
 						newlyDiscoveredId = -1;
 						newlyDiscoveredTime = 0L;
-					}
-					else obj = CompendiumEvents.getObservation(mc.thePlayer).getObject();
+					}*/
+					// TODO else obj = CompendiumEvents.getObservation(mc.thePlayer).getObject();
 				}
 				else{
 					GuiContainer container = (GuiContainer)mc.currentScreen;
@@ -155,7 +137,7 @@ public final class CompendiumEventsClient{
 						if (slot.getHasStack() && slot.func_111238_b() &&
 							mouseX >= slot.xDisplayPosition-1 && mouseX <= slot.xDisplayPosition+16 &&
 							mouseY >= slot.yDisplayPosition-1 && mouseY <= slot.yDisplayPosition+16){
-							obj = KnowledgeUtils.tryGetFromItemStack(slot.getStack());
+							obj = KnowledgeObject.fromObject(slot.getStack());
 							break;
 						}
 					}
@@ -165,10 +147,10 @@ public final class CompendiumEventsClient{
 				
 				openCompendium(obj);
 				
-				if (!mc.thePlayer.getStatFileWriter().hasAchievementUnlocked(AchievementManager.ENDER_COMPENDIUM)){
+				/*if (!mc.thePlayer.getStatFileWriter().hasAchievementUnlocked(AchievementManager.ENDER_COMPENDIUM)){
 					PacketPipeline.sendToServer(new S03SimpleEvent(EventType.OPEN_COMPENDIUM));
-					achievementTimer = Byte.MIN_VALUE;
-				}
+					// TODO achievementTimer = Byte.MIN_VALUE;
+				}*/
 			} 
 		}
 	}

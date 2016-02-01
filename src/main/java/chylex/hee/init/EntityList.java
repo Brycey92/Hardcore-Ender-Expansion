@@ -3,9 +3,8 @@ import chylex.hee.entity.block.EntityBlockEnderCrystal;
 import chylex.hee.entity.block.EntityBlockEnhancedTNTPrimed;
 import chylex.hee.entity.block.EntityBlockFallingDragonEgg;
 import chylex.hee.entity.block.EntityBlockFallingObsidian;
-import chylex.hee.entity.block.EntityBlockHomelandCache;
+import chylex.hee.entity.block.EntityBlockTokenHolder;
 import chylex.hee.entity.boss.EntityBossDragon;
-import chylex.hee.entity.boss.EntityBossEnderDemon;
 import chylex.hee.entity.boss.EntityMiniBossEnderEye;
 import chylex.hee.entity.boss.EntityMiniBossFireFiend;
 import chylex.hee.entity.item.EntityItemAltar;
@@ -19,8 +18,9 @@ import chylex.hee.entity.technical.EntityTechnicalCurseBlock;
 import chylex.hee.entity.technical.EntityTechnicalCurseEntity;
 import chylex.hee.entity.technical.EntityTechnicalPuzzleChain;
 import chylex.hee.entity.technical.EntityTechnicalPuzzleSolved;
+import chylex.hee.entity.technical.EntityTechnicalSpawner;
 import chylex.hee.entity.technical.EntityTechnicalTrigger;
-import chylex.hee.entity.weather.EntityWeatherLightningBoltDemon;
+import chylex.hee.entity.technical.EntityTechnicalVoidPortal;
 import chylex.hee.entity.weather.EntityWeatherLightningBoltSafe;
 import chylex.hee.system.util.GameRegistryUtil;
 
@@ -31,13 +31,10 @@ public final class EntityList{
 		GameRegistryUtil.replaceVanillaEntity(EntityBlockEnderCrystal.class, 200);
 		
 		GameRegistryUtil.registerEntity(EntityBossDragon.class, "Dragon", 8, 320);
-		GameRegistryUtil.registerEntity(EntityBossEnderDemon.class, "EnderDemon", 21, 512);
 		GameRegistryUtil.registerEntity(EntityMiniBossEnderEye.class, "EnderEye", 11, 256);
 		GameRegistryUtil.registerEntity(EntityMiniBossFireFiend.class, "FireFiend", 23, 256);
 		GameRegistryUtil.registerEntity(EntityMobEnderman.class, "Enderman", 51, 256);
-		GameRegistryUtil.registerEntity(EntityMobAngryEnderman.class, "AngryEnderman", 1, 256);
 		GameRegistryUtil.registerEntity(EntityMobBabyEnderman.class, "BabyEnderman", 16, 256);
-		GameRegistryUtil.registerEntity(EntityMobHomelandEnderman.class, "HomelandEnderman", 39, 256);
 		GameRegistryUtil.registerEntity(EntityMobEnderGuardian.class, "EnderGuardian", 22, 256);
 		GameRegistryUtil.registerEntity(EntityMobVampiricBat.class, "VampireBat", 10, 256);
 		GameRegistryUtil.registerEntity(EntityMobInfestedBat.class, "InfestedBat", 12, 128);
@@ -52,7 +49,7 @@ public final class EntityList{
 		GameRegistryUtil.registerEntity(EntityBlockFallingDragonEgg.class, "FallingDragonEgg", 25, 128);
 		GameRegistryUtil.registerEntity(EntityBlockFallingObsidian.class, "FallingObsidian", 26, 128);
 		GameRegistryUtil.registerEntity(EntityBlockEnhancedTNTPrimed.class, "EnhancedTNT", 31, 128);
-		GameRegistryUtil.registerEntity(EntityBlockHomelandCache.class, "BlockHomelandCache", 50, 256);
+		GameRegistryUtil.registerEntity(EntityBlockTokenHolder.class, "TokenHolder", 50, 256);
 
 		GameRegistryUtil.registerEntity(EntityItemIgneousRock.class, "ItemIgneousRock", 9, 64);
 		GameRegistryUtil.registerEntity(EntityItemInstabilityOrb.class, "ItemInstabilityOrb", 6, 64);
@@ -74,7 +71,6 @@ public final class EntityList{
 		GameRegistryUtil.registerEntity(EntityProjectileEyeOfEnder.class, "ProjectileEyeOfEnder", 55, 512);
 
 		GameRegistryUtil.registerEntity(EntityWeatherLightningBoltSafe.class, "LightningBoltSafe", 4, 512, 1, false);
-		GameRegistryUtil.registerEntity(EntityWeatherLightningBoltDemon.class, "LightningBoltDemon", 21, 512, 1, false);
 		
 		GameRegistryUtil.registerEntity(EntityTechnicalBiomeInteraction.class, "TechnicalBiomeInteraction", 38, 0, Integer.MAX_VALUE, false);
 		GameRegistryUtil.registerEntity(EntityTechnicalPuzzleChain.class, "TechnicalPuzzleChain", 43, 0, Integer.MAX_VALUE, false);
@@ -82,7 +78,9 @@ public final class EntityList{
 		GameRegistryUtil.registerEntity(EntityTechnicalCurseBlock.class, "TechnicalCurseBlock", 46, 64, 1, false);
 		GameRegistryUtil.registerEntity(EntityTechnicalCurseEntity.class, "TechnicalCurseEntity", 47, 64, 1, false);
 		GameRegistryUtil.registerEntity(EntityTechnicalTrigger.class, "TechnicalTrigger", 54, 0, Integer.MAX_VALUE, false);
-		// last: 55
+		GameRegistryUtil.registerEntity(EntityTechnicalSpawner.class, "TechnicalSpawner", 56, 0, Integer.MAX_VALUE, false);
+		GameRegistryUtil.registerEntity(EntityTechnicalVoidPortal.class, "TechnicalVoidPortal", 57, 128, 1, false);
+		// last: 57
 	}
 	
 	private EntityList(){}

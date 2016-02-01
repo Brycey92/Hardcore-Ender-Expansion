@@ -2,10 +2,10 @@ package chylex.hee.entity.mob;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import net.minecraft.block.Block;
 import net.minecraft.block.material.Material;
 import net.minecraft.entity.Entity;
-import net.minecraft.entity.SharedMonsterAttributes;
 import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.monster.EntityEnderman;
 import net.minecraft.entity.monster.EntityMob;
@@ -16,7 +16,6 @@ import net.minecraft.item.*;
 import net.minecraft.item.Item.ToolMaterial;
 import net.minecraft.item.ItemArmor.ArmorMaterial;
 import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.nbt.NBTTagList;
 import net.minecraft.nbt.NBTTagString;
 import net.minecraft.pathfinding.PathEntity;
 import net.minecraft.util.DamageSource;
@@ -25,7 +24,7 @@ import net.minecraft.util.StatCollector;
 import net.minecraft.world.EnumDifficulty;
 import net.minecraft.world.World;
 import net.minecraftforge.common.IPlantable;
-import net.minecraftforge.common.util.Constants;
+import org.apache.commons.lang3.EnumUtils;
 import chylex.hee.block.BlockCrossedDecoration;
 import chylex.hee.entity.GlobalMobData.IIgnoreEnderGoo;
 import chylex.hee.entity.mob.util.IEndermanRenderer;
@@ -35,13 +34,22 @@ import chylex.hee.mechanics.misc.Baconizer;
 import chylex.hee.packets.PacketPipeline;
 import chylex.hee.packets.client.C00ClearInventorySlot;
 import chylex.hee.proxy.ModCommonProxy;
+import chylex.hee.system.abstractions.Pos.PosMutable;
+import chylex.hee.system.abstractions.entity.EntityAttributes;
+import chylex.hee.system.abstractions.entity.EntityDataWatcher;
+import chylex.hee.system.abstractions.entity.EntitySelector;
+import chylex.hee.system.abstractions.nbt.NBT;
+import chylex.hee.system.abstractions.nbt.NBTList;
 import chylex.hee.system.collections.CollectionUtil;
-import chylex.hee.system.util.BlockPosM;
 import chylex.hee.system.util.IItemSelector;
 import chylex.hee.system.util.MathUtil;
-import chylex.hee.system.util.NBTUtil;
+import chylex.hee.system.util.WorldUtil;
+import chylex.hee.system.util.WorldUtil.GameRule;
 
 public class EntityMobBabyEnderman extends EntityMob implements IEndermanRenderer, IIgnoreEnderGoo{
+	private enum Data{ HELD_ITEM }
+	
+	private EntityDataWatcher entityData;
 	private EntityPlayer target;
 	private final List<ItemPriorityLevel> itemPriorities = new ArrayList<>();
 	private ItemPriorityLevel carryingLevel = ItemPriorityLevel.RANDOM;
@@ -66,14 +74,15 @@ public class EntityMobBabyEnderman extends EntityMob implements IEndermanRendere
 	@Override
 	protected void applyEntityAttributes(){
 		super.applyEntityAttributes();
-		getEntityAttribute(SharedMonsterAttributes.maxHealth).setBaseValue(ModCommonProxy.opMobs ? 15D : 11D);
-		getEntityAttribute(SharedMonsterAttributes.movementSpeed).setBaseValue(ModCommonProxy.opMobs ? 0.75D : 0.7D);
+		EntityAttributes.setValue(this,EntityAttributes.maxHealth,ModCommonProxy.opMobs ? 15D : 11D);
+		EntityAttributes.setValue(this,EntityAttributes.movementSpeed,ModCommonProxy.opMobs ? 0.75D : 0.7D);
 	}
 	
 	@Override
 	protected void entityInit(){
 		super.entityInit();
-		dataWatcher.addObject(16,new ItemStack(Blocks.bedrock));
+		entityData = new EntityDataWatcher(this);
+		entityData.addItemStack(Data.HELD_ITEM);
 	}
 	
 	@Override
@@ -108,17 +117,17 @@ public class EntityMobBabyEnderman extends EntityMob implements IEndermanRendere
 		
 		if (!worldObj.isRemote){
 			if (target == null){
-				if (!hasIS && !isScared && rand.nextInt(550) == 0 && worldObj.getGameRules().getGameRuleBooleanValue("mobGriefing")){ // set target
-					CollectionUtil.<EntityPlayer>random(worldObj.getEntitiesWithinAABB(EntityPlayer.class,boundingBox.expand(6D,3D,6D)),rand).ifPresent(player -> {
+				if (!hasIS && !isScared && rand.nextInt(550) == 0 && WorldUtil.getRuleBool(worldObj,GameRule.MOB_GRIEFING)){ // set target
+					CollectionUtil.random(EntitySelector.players(worldObj,boundingBox.expand(6D,3D,6D)),rand).ifPresent(player -> {
 						target = player;
 						ItemStack headArmor = target.getCurrentArmor(3);
 						
-						if (headArmor != null && headArmor.getItem() == ItemList.enderman_head)target = null;
+						if (headArmor != null && headArmor.getItem() == Item.getItemFromBlock(BlockList.enderman_head))target = null;
 						else attentionLossTimer = (byte)(64+rand.nextInt(62));
 					});
 				}
 				else{ // find stuff on the ground
-					List<EntityItem> list = worldObj.getEntitiesWithinAABB(EntityItem.class,boundingBox.expand(1D,0D,1D));
+					List<EntityItem> list = EntitySelector.type(worldObj,EntityItem.class,boundingBox.expand(1D,0D,1D));
 					
 					if (!list.isEmpty() && ++itemDecisionTimer > rand.nextInt(70)+15){
 						int carryingLevelIndex = itemPriorities.indexOf(carryingLevel);
@@ -157,7 +166,7 @@ public class EntityMobBabyEnderman extends EntityMob implements IEndermanRendere
 					}
 				}
 			}
-			else if (target != null){
+			else{
 				if (--attentionLossTimer < -124 || target.isDead)target = null; // is target dead
 				else if (!hasIS && getDistanceToEntity(target) < 1.8D){ // steal from target
 					for(int attempt = 0,slot; attempt < 60; attempt++){
@@ -180,15 +189,15 @@ public class EntityMobBabyEnderman extends EntityMob implements IEndermanRendere
 					}
 					
 					PathEntity escapePath = null;
-					BlockPosM tmpPos = BlockPosM.tmp();
+					PosMutable mpos = new PosMutable();
 					
 					for(int pathatt = 0; pathatt < 100; pathatt++){
 						double ang = rand.nextDouble()*2D*Math.PI,len = 8D+rand.nextDouble()*6D;
-						tmpPos.set(posX+Math.cos(ang)*len,posY+rand.nextInt(4)-2,posZ+Math.sin(ang)*len);
+						mpos.set(posX+Math.cos(ang)*len,posY+rand.nextInt(4)-2,posZ+Math.sin(ang)*len);
 						
-						Block low = tmpPos.getBlock(worldObj);
-						if ((low.getMaterial() == Material.air || low == BlockList.crossed_decoration) && tmpPos.moveUp().getMaterial(worldObj) == Material.air){
-							escapePath = worldObj.getEntityPathToXYZ(this,tmpPos.x,tmpPos.y,tmpPos.z,16F,false,true,false,false);
+						Block low = mpos.getBlock(worldObj);
+						if ((low.getMaterial() == Material.air || low == BlockList.crossed_decoration) && mpos.moveUp().getMaterial(worldObj) == Material.air){
+							escapePath = worldObj.getEntityPathToXYZ(this,mpos.x,mpos.y,mpos.z,16F,false,true,false,false);
 							break;
 						}
 					}
@@ -215,13 +224,14 @@ public class EntityMobBabyEnderman extends EntityMob implements IEndermanRendere
 			
 			int familySize = Math.min(endermanList.size(),2+rand.nextInt(3)+rand.nextInt(2));
 			for(int a = 0; a < familySize; a++){
-				EntityEnderman orig = endermanList.get(a);
+				/* TODO
+				 * change AI of EntityMobEnderman instead
 				EntityMobAngryEnderman angryEnderman = new EntityMobAngryEnderman(worldObj,orig.posX,orig.posY,orig.posZ);
 				angryEnderman.copyLocationAndAnglesFrom(orig);
-				angryEnderman.setTarget(source.getEntity());
+				// TODO no longer works angryEnderman.setTarget(source.getEntity());
 				
 				orig.setDead();
-				worldObj.spawnEntityInWorld(angryEnderman);
+				worldObj.spawnEntityInWorld(angryEnderman);*/
 			}
 			
 			isFamilyChosen = isScared = true;
@@ -268,7 +278,7 @@ public class EntityMobBabyEnderman extends EntityMob implements IEndermanRendere
 	}
 	
 	public void setCarriedItemStack(ItemStack is){
-		dataWatcher.updateObject(16,is);
+		entityData.setItemStack(Data.HELD_ITEM,is);
 		
 		for(ItemPriorityLevel level:itemPriorities){
 			if (level.isValid(is)){
@@ -289,7 +299,7 @@ public class EntityMobBabyEnderman extends EntityMob implements IEndermanRendere
 		super.writeEntityToNBT(nbt);
 		
 		// item priority list
-		NBTUtil.writeList(nbt,"priorities",itemPriorities.stream().map(level -> new NBTTagString(level.name())));
+		NBT.wrap(nbt).writeList("priorities",itemPriorities.stream().map(ItemPriorityLevel::name).map(NBTTagString::new));
 		
 		// carried item
 		ItemStack is = getCarrying();
@@ -305,14 +315,11 @@ public class EntityMobBabyEnderman extends EntityMob implements IEndermanRendere
 		super.readEntityFromNBT(nbt);
 		
 		// item priority list
-		NBTTagList tagPriorities = nbt.getTagList("priorities",Constants.NBT.TAG_STRING);
+		NBTList tagPriorities = NBT.wrap(nbt).getList("priorities");
 		
-		if (tagPriorities.tagCount() > 0){
+		if (!tagPriorities.isEmpty()){
 			itemPriorities.clear();
-			
-			for(int a = 0; a < tagPriorities.tagCount(); a++){
-				itemPriorities.add(ItemPriorityLevel.valueOf(tagPriorities.getStringTagAt(a)));
-			}
+			tagPriorities.readStrings().map(name -> EnumUtils.getEnum(ItemPriorityLevel.class,name)).filter(Objects::nonNull).forEach(itemPriorities::add);
 		}
 		
 		// carried item
@@ -324,19 +331,13 @@ public class EntityMobBabyEnderman extends EntityMob implements IEndermanRendere
 	}
 
 	@Override
-	public boolean isScreaming(){
+	public boolean isAggressive(){
 		return false;
-	}
-
-	@Override
-	public boolean isCarrying(){
-		ItemStack is = getCarrying();
-		return is != null && is.getItem() != Item.getItemFromBlock(Blocks.bedrock);
 	}
 	
 	@Override
 	public ItemStack getCarrying(){
-		return dataWatcher.getWatchableObjectItemStack(16);
+		return entityData.getItemStack(Data.HELD_ITEM);
 	}
 	
 	@Override

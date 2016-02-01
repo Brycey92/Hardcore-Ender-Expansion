@@ -1,92 +1,58 @@
 package chylex.hee.mechanics.compendium.content;
-import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
-import java.util.Collection;
-import java.util.Collections;
-import org.apache.commons.lang3.ArrayUtils;
+import java.util.Set;
+import java.util.stream.Collectors;
 import chylex.hee.gui.GuiEnderCompendium;
-import chylex.hee.mechanics.compendium.objects.IKnowledgeObjectInstance;
+import chylex.hee.mechanics.compendium.content.fragments.KnowledgeFragmentType;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
-public abstract class KnowledgeFragment{
-	private static final TIntObjectMap<KnowledgeFragment> allFragments = new TIntObjectHashMap<>();
+public abstract class KnowledgeFragment<T extends KnowledgeFragment>{
+	private static final TIntObjectHashMap<KnowledgeFragment<?>> allFragments = new TIntObjectHashMap<>();
 	
-	public static final Collection<KnowledgeFragment> getAllFragments(){
-		return Collections.unmodifiableCollection(allFragments.valueCollection());
+	public static KnowledgeFragment<?> fromID(int id){
+		return allFragments.get(id);
 	}
 	
-	public static final KnowledgeFragment getById(int globalID){
-		return allFragments.get(globalID);
+	public static Set<KnowledgeFragment> getUnlockableFragments(){
+		return allFragments.valueCollection().stream().filter(fragment -> fragment.getType() == KnowledgeFragmentType.SECRET || fragment.getType() == KnowledgeFragmentType.HINT).collect(Collectors.toSet());
 	}
 	
 	public final int globalID;
+	private KnowledgeFragmentType type;
 	private int price;
-	private boolean unlockOnDiscovery;
-	private int[] unlockRequirements = ArrayUtils.EMPTY_INT_ARRAY;
-	private int[] unlockCascade = ArrayUtils.EMPTY_INT_ARRAY;
-	private KnowledgeObject<? extends IKnowledgeObjectInstance<?>> unlockRedirect;
 	
 	public KnowledgeFragment(int globalID){
 		this.globalID = globalID;
-		if (allFragments.putIfAbsent(globalID,this) != null)throw new IllegalArgumentException("Could not initialize Knowledge Fragments, global fragment ID "+globalID+" is already taken!");
+		allFragments.put(globalID,this);
 	}
 	
-	public KnowledgeFragment setPrice(int price){
+	public T setType(KnowledgeFragmentType type){
+		return setType(type,0);
+	}
+	
+	public T setType(KnowledgeFragmentType type, int price){
+		if ((price != 0) ^ (type == KnowledgeFragmentType.SECRET)){
+			throw new IllegalArgumentException(price == 0 ? "Secret fragments need to have a price!" : "Only secret fragments can have a price!");
+		}
+		
+		this.type = type;
 		this.price = price;
-		return this;
+		return (T)this;
+	}
+	
+	public KnowledgeFragmentType getType(){
+		return type;
 	}
 	
 	public int getPrice(){
 		return price;
 	}
 	
-	public KnowledgeFragment setNonBuyable(){
-		this.price = -1;
-		return this;
+	public final boolean equals(KnowledgeFragment fragment){
+		return fragment.globalID == globalID;
 	}
 	
-	public KnowledgeFragment setNonBuyableRedirect(KnowledgeObject<? extends IKnowledgeObjectInstance<?>> unlockRedirect){
-		this.price = -1;
-		this.unlockRedirect = unlockRedirect;
-		return this;
-	}
-	
-	public boolean isBuyable(){
-		return price != -1;
-	}
-	
-	public KnowledgeObject<? extends IKnowledgeObjectInstance<?>> getUnlockRedirect(){
-		return unlockRedirect;
-	}
-	
-	public KnowledgeFragment setUnlockOnDiscovery(){
-		this.unlockOnDiscovery = true;
-		return this;
-	}
-	
-	public boolean isUnlockedOnDiscovery(){
-		return unlockOnDiscovery;
-	}
-	
-	public KnowledgeFragment setUnlockRequirements(int...requirements){
-		this.unlockRequirements = requirements;
-		return this;
-	}
-	
-	public int[] getUnlockRequirements(){
-		return unlockRequirements;
-	}
-	
-	public KnowledgeFragment setUnlockCascade(int...cascade){
-		this.unlockCascade = cascade;
-		return this;
-	}
-	
-	public int[] getUnlockCascade(){
-		return unlockCascade;
-	}
-
 	@SideOnly(Side.CLIENT)
 	public abstract int getHeight(GuiEnderCompendium gui, boolean isUnlocked);
 	
@@ -104,5 +70,9 @@ public abstract class KnowledgeFragment{
 	@Override
 	public final int hashCode(){
 		return globalID;
+	}
+	
+	protected static final boolean checkRect(int mouseX, int mouseY, int x, int y, int w, int h){
+		return mouseX >= x && mouseX <= x+w && mouseY >= y && mouseY <= y+h;
 	}
 }
